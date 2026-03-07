@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Covigo — Coverage Navigator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#0c0d0f;--ink2:#141519;--ink3:#1d1f26;--ink4:#262930;
+  --veil:#2e3039;--mist:#5a5e6e;--fog:#8b8fa0;--silver:#b8bbc8;
+  --ivory:#e8e4d9;--cream:#f4f0e6;
+  --gold:#c9a84c;--gold2:#e2c06a;--gold3:#f0d48a;
+  --gold-glow:rgba(201,168,76,0.18);--gold-line:rgba(201,168,76,0.35);
+  --emerald:#2dd4a0;--ember:#e07b3a;--crimson:#c0392b;--lavender:#9b8ec4;
+  --skipped:#e05252;
+  --panel-h:62vh;--radius:16px;--radius-sm:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;height:100dvh;overflow:hidden;background:var(--ink);color:var(--ivory);font-family:'DM Sans',sans-serif;font-weight:400;}
+
+/* ── LANDING ── */
+#landing{position:fixed;inset:0;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9000;transition:opacity 0.9s cubic-bezier(0.4,0,0.2,1),transform 0.9s cubic-bezier(0.4,0,0.2,1);}
+#landing.exit{opacity:0;transform:scale(1.04);pointer-events:none;}
+.landing-bg{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 40%,rgba(201,168,76,0.07) 0%,transparent 70%),radial-gradient(ellipse 40% 40% at 20% 80%,rgba(45,212,160,0.04) 0%,transparent 60%),var(--ink);overflow:hidden;}
+.landing-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,168,76,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,0.04) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 20%,transparent 80%);animation:gridDrift 20s linear infinite;}
+@keyframes gridDrift{0%{transform:translate(0,0)}100%{transform:translate(44px,44px)}}
+.landing-content{position:relative;text-align:center;padding:0 32px;}
+.landing-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,168,76,0.08);border:1px solid var(--gold-line);border-radius:40px;padding:5px 16px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--gold);text-transform:uppercase;margin-bottom:32px;animation:fadeUp 0.8s 0.2s both;}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite;}
+.landing-logo{font-family:'Cormorant Garamond',serif;font-size:clamp(68px,18vw,110px);font-weight:300;letter-spacing:-2px;line-height:0.9;color:var(--ivory);animation:fadeUp 0.8s 0.35s both;}
+.landing-logo em{font-style:italic;color:var(--gold2);}
+.landing-logo-sub{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:5px;color:var(--mist);text-transform:uppercase;margin-top:10px;animation:fadeUp 0.8s 0.5s both;}
+.landing-divider{width:1px;height:48px;background:linear-gradient(180deg,transparent,var(--gold-line),transparent);margin:36px auto;animation:fadeUp 0.8s 0.6s both;}
+.landing-desc{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300;font-style:italic;color:var(--silver);line-height:1.5;max-width:300px;animation:fadeUp 0.8s 0.7s both;}
+.landing-enter{margin-top:52px;display:inline-flex;align-items:center;gap:12px;background:transparent;border:1px solid var(--gold-line);border-radius:50px;padding:15px 40px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold2);cursor:pointer;transition:all 0.35s cubic-bezier(0.4,0,0.2,1);animation:fadeUp 0.8s 0.9s both;position:relative;overflow:hidden;}
+.landing-enter::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--gold-glow),transparent);opacity:0;transition:opacity 0.35s;}
+.landing-enter:hover::before{opacity:1;}
+.landing-enter:hover{border-color:var(--gold2);box-shadow:0 0 30px rgba(201,168,76,0.2),inset 0 0 20px rgba(201,168,76,0.05);letter-spacing:2px;}
+.landing-enter svg{transition:transform 0.35s;}
+.landing-enter:hover svg{transform:translateX(4px);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── APP SHELL ── */
+#app{height:100%;height:100dvh;display:flex;flex-direction:column;opacity:0;transition:opacity 0.8s 0.2s ease;}
+#app.visible{opacity:1;}
+
+/* ── HEADER ── */
+#appHeader{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(12,13,15,0.95);border-bottom:1px solid rgba(201,168,76,0.12);backdrop-filter:blur(20px);flex-shrink:0;z-index:600;}
+.header-logo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;letter-spacing:1px;color:var(--ivory);}
+.header-logo em{font-style:italic;color:var(--gold2);}
+.header-right{display:flex;align-items:center;gap:12px;}
+.header-status{display:flex;align-items:center;gap:7px;}
+.status-pip{width:7px;height:7px;border-radius:50%;background:var(--veil);transition:background 0.4s,box-shadow 0.4s;flex-shrink:0;}
+.status-pip.active{background:var(--emerald);box-shadow:0 0 8px var(--emerald);animation:pulse 2s infinite;}
+.status-pip.loading{background:var(--gold2);box-shadow:0 0 6px var(--gold2);animation:pulse 0.8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.status-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--mist);text-transform:uppercase;}
+/* Skipped badge in header */
+.skipped-badge{display:none;align-items:center;gap:5px;background:rgba(224,82,82,0.12);border:1px solid rgba(224,82,82,0.35);border-radius:20px;padding:3px 10px;cursor:pointer;transition:all 0.2s;}
+.skipped-badge.visible{display:flex;}
+.skipped-badge:hover{background:rgba(224,82,82,0.2);}
+.skipped-badge-dot{width:5px;height:5px;border-radius:50%;background:var(--skipped);animation:pulse 1.2s infinite;}
+.skipped-badge-text{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--skipped);}
+
+/* ── MAP ── */
+#map{flex:1;position:relative;z-index:1;}
+#map .leaflet-tile-pane{filter:saturate(0.2) brightness(0.55) contrast(1.1);}
+.leaflet-draw-toolbar a{background:rgba(20,21,25,0.92)!important;border-color:rgba(201,168,76,0.25)!important;color:var(--silver)!important;backdrop-filter:blur(10px);}
+.leaflet-draw-toolbar a:hover{background:rgba(201,168,76,0.12)!important;color:var(--gold2)!important;border-color:var(--gold-line)!important;}
+.leaflet-bar a{background:rgba(20,21,25,0.92)!important;color:var(--silver)!important;border-color:rgba(201,168,76,0.2)!important;backdrop-filter:blur(10px);}
+.leaflet-bar a:hover{background:rgba(201,168,76,0.1)!important;color:var(--gold2)!important;}
+.leaflet-popup-content-wrapper{background:var(--ink2);color:var(--ivory);border:1px solid var(--veil);border-radius:10px;}
+.leaflet-popup-tip{background:var(--ink2);}
+
+/* ── NAV BANNER ── */
+#navBanner{position:absolute;top:0;left:0;right:0;z-index:500;display:none;flex-direction:column;pointer-events:none;}
+#navBanner.visible{display:flex;}
+.nav-card{display:flex;align-items:stretch;background:rgba(12,13,15,0.96);border-bottom:1px solid var(--gold-line);backdrop-filter:blur(24px);pointer-events:auto;min-height:78px;}
+.nav-icon-col{width:78px;min-height:78px;background:linear-gradient(135deg,var(--gold),#a8722a);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.nav-icon-col.skipped-mode{background:linear-gradient(135deg,var(--skipped),#a03030);}
+.nav-arrow-svg{width:38px;height:38px;fill:var(--ink);transition:transform 0.5s cubic-bezier(0.4,0,0.2,1);}
+.nav-body{flex:1;padding:12px 16px;overflow:hidden;}
+.nav-action{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:500;color:var(--ivory);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-street{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.5px;color:var(--mist);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-dist-col{padding:12px 18px;text-align:right;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;}
+.nav-dist-num{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:500;color:var(--gold2);line-height:1;letter-spacing:-0.5px;}
+.nav-dist-unit{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--mist);margin-top:3px;text-transform:uppercase;}
+.nav-next-bar{background:rgba(12,13,15,0.88);border-bottom:1px solid rgba(201,168,76,0.08);padding:7px 16px 7px 94px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--mist);backdrop-filter:blur(16px);pointer-events:auto;}
+.nav-next-bar strong{color:var(--silver);font-weight:500;}
+
+/* ── MAP CONTROLS ── */
+.map-control-cluster{position:absolute;right:12px;bottom:32px;z-index:490;display:flex;flex-direction:column;gap:8px;}
+.map-ctrl-btn{width:46px;height:46px;background:rgba(12,13,15,0.92);border:1px solid rgba(201,168,76,0.18);border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--fog);transition:all 0.25s cubic-bezier(0.4,0,0.2,1);backdrop-filter:blur(16px);box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+.map-ctrl-btn:hover{border-color:var(--gold-line);color:var(--gold2);background:rgba(20,21,25,0.96);}
+.map-ctrl-btn.on{border-color:var(--gold2);color:var(--gold2);background:rgba(201,168,76,0.08);}
+.map-ctrl-btn.on svg{animation:locateSpin 2.5s linear infinite;}
+@keyframes locateSpin{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* ── BOTTOM SHEET ── */
+#sheet{background:var(--ink2);border-top:1px solid rgba(201,168,76,0.15);flex-shrink:0;max-height:var(--panel-h);overflow-y:auto;overflow-x:hidden;z-index:600;transition:max-height 0.45s cubic-bezier(0.4,0,0.2,1);scroll-behavior:smooth;-webkit-overflow-scrolling:touch;}
+#sheet.collapsed{max-height:62px;}
+#sheet::-webkit-scrollbar{display:none;}
+.sheet-handle{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;border-bottom:1px solid rgba(201,168,76,0.07);position:sticky;top:0;background:var(--ink2);z-index:10;transition:background 0.2s;}
+.sheet-handle:hover{background:var(--ink3);}
+.sheet-handle-left{display:flex;flex-direction:column;gap:2px;}
+.sheet-step{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--gold);}
+.sheet-title{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;color:var(--ivory);letter-spacing:0.3px;}
+.sheet-chevron{width:28px;height:28px;border-radius:50%;border:1px solid var(--veil);display:flex;align-items:center;justify-content:center;color:var(--mist);transition:transform 0.35s cubic-bezier(0.4,0,0.2,1),border-color 0.2s;}
+.sheet-chevron.up{transform:rotate(180deg);border-color:var(--gold-line);}
+.sheet-chevron svg{width:14px;height:14px;}
+
+/* ── DASHBOARD (extended stats) ── */
+.dashboard{border-bottom:1px solid rgba(201,168,76,0.07);}
+.stats-trio{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(201,168,76,0.07);}
+.stats-duo{display:grid;grid-template-columns:repeat(2,1fr);}
+.stat-cell{padding:12px 12px;text-align:center;position:relative;}
+.stat-cell+.stat-cell::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:rgba(201,168,76,0.1);}
+.stat-num{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:500;color:var(--gold2);letter-spacing:-0.5px;line-height:1;}
+.stat-num.emerald{color:var(--emerald);}
+.stat-num.crimson{color:var(--skipped);}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--mist);margin-top:3px;text-transform:uppercase;}
+
+/* ── PROGRESS BAR ── */
+.progress-section{padding:12px 20px 6px;}
+.progress-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.progress-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mist);}
+.progress-pct{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold2);}
+.progress-track{height:4px;background:var(--veil);border-radius:2px;overflow:hidden;position:relative;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--gold) 0%,var(--emerald) 100%);border-radius:2px;width:0%;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+
+/* ── LEGEND ── */
+.legend-row{display:flex;gap:14px;flex-wrap:wrap;padding:8px 20px;border-bottom:1px solid rgba(201,168,76,0.07);}
+.legend-item{display:flex;align-items:center;gap:6px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--fog);}
+.legend-swatch{width:20px;height:3px;border-radius:2px;flex-shrink:0;}
+
+/* ── HINT BOX ── */
+.hint-box{margin:12px 20px;padding:13px 16px;background:rgba(201,168,76,0.04);border:1px solid rgba(201,168,76,0.12);border-left:2px solid var(--gold);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:12.5px;color:var(--silver);line-height:1.55;}
+.hint-box strong{color:var(--gold2);font-weight:500;}
+
+/* ── DIRECTION PICKER ── */
+.dir-section{padding:14px 20px;border-bottom:1px solid rgba(201,168,76,0.07);}
+.section-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--mist);margin-bottom:10px;}
+.dir-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}
+.dir-pill{padding:10px 4px;background:var(--ink3);border:1px solid var(--veil);border-radius:10px;color:var(--fog);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.5px;text-align:center;cursor:pointer;transition:all 0.2s cubic-bezier(0.4,0,0.2,1);line-height:1.3;}
+.dir-pill:hover{border-color:var(--gold-line);color:var(--ivory);background:var(--ink4);}
+.dir-pill.on{background:rgba(201,168,76,0.1);border-color:var(--gold);color:var(--gold2);}
+.dir-icon{font-size:15px;display:block;margin-bottom:3px;}
+
+/* ── PIN ROW ── */
+.pin-row{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid rgba(201,168,76,0.07);}
+.pin-indicator{width:10px;height:10px;border-radius:50%;background:var(--ember);box-shadow:0 0 8px rgba(224,123,58,0.5);flex-shrink:0;animation:pulse 2s infinite;}
+.pin-text{font-family:'DM Mono',monospace;font-size:10px;color:var(--fog);flex:1;letter-spacing:0.3px;}
+.pin-text strong{color:var(--ember);}
+
+/* ── MISSED STREETS PANEL ── */
+.missed-section{padding:14px 20px;border-bottom:1px solid rgba(201,168,76,0.07);}
+.missed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.missed-title{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--skipped);}
+.missed-count{font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--skipped);}
+.missed-list{display:flex;flex-direction:column;gap:4px;}
+.missed-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(224,82,82,0.06);border:1px solid rgba(224,82,82,0.15);border-radius:8px;cursor:pointer;transition:all 0.2s;}
+.missed-item:hover{background:rgba(224,82,82,0.12);border-color:rgba(224,82,82,0.3);}
+.missed-item-dot{width:8px;height:8px;border-radius:50%;background:var(--skipped);flex-shrink:0;}
+.missed-item-name{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--silver);flex:1;}
+.missed-item-dist{font-family:'DM Mono',monospace;font-size:9px;color:var(--mist);}
+.missed-item-zoom{font-size:11px;color:var(--mist);transition:color 0.2s;}
+.missed-item:hover .missed-item-zoom{color:var(--skipped);}
+.missed-empty{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);text-align:center;padding:12px 0;letter-spacing:1px;}
+
+/* ── SEGMENT TOOLTIP ── */
+.seg-info-popup{font-family:'DM Sans',sans-serif;font-size:12px;line-height:1.6;}
+.seg-info-popup .seg-name{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--gold2);font-weight:500;margin-bottom:4px;}
+.seg-info-popup .seg-row{display:flex;justify-content:space-between;gap:12px;color:var(--silver);}
+.seg-info-popup .seg-val{color:var(--ivory);font-weight:500;}
+
+/* ── BUTTONS ── */
+.btn-section{padding:12px 20px;display:flex;flex-direction:column;gap:8px;}
+.btn-row-2{display:flex;gap:8px;}
+.cov-btn{flex:1;padding:14px 18px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:500;letter-spacing:0.7px;text-transform:uppercase;cursor:pointer;transition:all 0.25s cubic-bezier(0.4,0,0.2,1);display:flex;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;}
+.cov-btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0.07);opacity:0;transition:opacity 0.2s;}
+.cov-btn:hover::after{opacity:1;}
+.cov-btn:active{transform:scale(0.97);}
+.cov-btn:disabled{opacity:0.28;cursor:not-allowed;transform:none!important;}
+.cov-btn:disabled::after{display:none;}
+.btn-outline{background:transparent;border:1px solid var(--gold-line);color:var(--gold2);}
+.btn-outline:hover:not(:disabled){background:var(--gold-glow);border-color:var(--gold2);}
+.btn-gold{background:linear-gradient(135deg,var(--gold) 0%,#a8722a 100%);color:var(--ink);font-weight:600;box-shadow:0 4px 24px rgba(201,168,76,0.25);}
+.btn-gold:hover:not(:disabled){box-shadow:0 6px 32px rgba(201,168,76,0.38);}
+.btn-emerald{background:linear-gradient(135deg,#1fb889,#16987a);color:var(--ink);font-weight:600;box-shadow:0 4px 20px rgba(45,212,160,0.2);}
+.btn-emerald:hover:not(:disabled){box-shadow:0 6px 28px rgba(45,212,160,0.32);}
+.btn-amber{background:linear-gradient(135deg,#d4903a,#b07020);color:var(--ink);font-weight:600;}
+.btn-ghost{background:var(--ink3);border:1px solid var(--veil);color:var(--silver);font-size:11px;}
+.btn-ghost:hover:not(:disabled){border-color:var(--gold-line);color:var(--gold2);}
+.btn-reset{flex:0 0 48px!important;padding:14px 0;background:var(--ink3);border:1px solid var(--veil);color:var(--mist);border-radius:var(--radius-sm);}
+.btn-reset:hover:not(:disabled){border-color:var(--crimson);color:var(--crimson);}
+
+/* ── TOAST (multi-type) ── */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(10px);background:rgba(20,21,25,0.96);border:1px solid rgba(201,168,76,0.2);border-radius:40px;padding:10px 22px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--silver);z-index:8000;opacity:0;transition:all 0.35s cubic-bezier(0.4,0,0.2,1);pointer-events:none;white-space:nowrap;max-width:88vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 32px rgba(0,0,0,0.5);backdrop-filter:blur(16px);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.warn{border-color:rgba(224,82,82,0.4);color:var(--skipped);}
+#toast.success{border-color:rgba(45,212,160,0.4);color:var(--emerald);}
+
+/* ── LOADING ── */
+#loadingOverlay{position:fixed;inset:0;background:rgba(10,11,13,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:7000;backdrop-filter:blur(12px);}
+#loadingOverlay.show{display:flex;}
+.loader-ring{position:relative;width:64px;height:64px;margin-bottom:28px;}
+.loader-ring-track{width:64px;height:64px;border-radius:50%;border:1.5px solid rgba(201,168,76,0.12);}
+.loader-ring-spin{position:absolute;inset:0;border-radius:50%;border:1.5px solid transparent;border-top-color:var(--gold2);border-right-color:rgba(201,168,76,0.4);animation:spin 1.1s cubic-bezier(0.4,0,0.2,1) infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-logo{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;font-style:italic;color:var(--gold2);letter-spacing:1px;}
+.loader-text{font-family:'DM Sans',sans-serif;font-size:13px;color:var(--silver);letter-spacing:0.3px;}
+.loader-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--mist);margin-top:6px;letter-spacing:1px;}
+
+/* ── SEGMENT COMPLETION ANIMATION ── */
+@keyframes segComplete{0%{filter:brightness(1)}30%{filter:brightness(2.2)}100%{filter:brightness(1)}}
+.seg-flash{animation:segComplete 0.7s ease-out both;}
+
+/* ── UTILS ── */
+.hidden{display:none!important;}
+.sheet-section{animation:sectionIn 0.35s cubic-bezier(0.4,0,0.2,1) both;}
+@keyframes sectionIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+
+
+/* ══ AI ASSISTANT ══ */
+#aiTrigger{position:fixed;right:18px;bottom:90px;z-index:1500;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#1a1620,#0e0f13);border:1.5px solid rgba(201,168,76,0.35);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 32px rgba(0,0,0,0.55);transition:all 0.3s;color:#e2c06a;}
+#aiTrigger:hover{border-color:#e2c06a;transform:translateY(-2px);}
+#aiTrigger.listening{border-color:#2dd4a0;color:#2dd4a0;animation:aiPulse 1.4s ease infinite;}
+#aiTrigger.thinking{animation:aiSpin 1.8s linear infinite;}
+.ai-tip{position:absolute;right:62px;top:50%;transform:translateY(-50%);background:rgba(12,13,15,0.95);border:1px solid rgba(201,168,76,0.35);border-radius:20px;padding:5px 12px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;color:#e2c06a;text-transform:uppercase;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.25s;}
+#aiTrigger:hover .ai-tip{opacity:1;}
+@keyframes aiPulse{0%{box-shadow:0 0 0 0 rgba(45,212,160,0.35)}70%{box-shadow:0 0 0 14px rgba(45,212,160,0)}100%{box-shadow:0 0 0 0 rgba(45,212,160,0)}}
+@keyframes aiSpin{to{transform:rotate(360deg)}}
+#aiDrawer{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;justify-content:flex-end;pointer-events:none;}
+#aiDrawer.open{pointer-events:all;}
+#aiScrim{position:absolute;inset:0;background:rgba(5,5,8,0.72);backdrop-filter:blur(6px);opacity:0;transition:opacity 0.4s;}
+#aiDrawer.open #aiScrim{opacity:1;}
+#aiPanel{position:relative;background:#0e0f14;border-top:1px solid rgba(201,168,76,0.2);border-radius:22px 22px 0 0;display:flex;flex-direction:column;max-height:82dvh;transform:translateY(100%);transition:transform 0.48s cubic-bezier(0.32,0.72,0,1);box-shadow:0 -12px 60px rgba(0,0,0,0.7);}
+#aiDrawer.open #aiPanel{transform:translateY(0);}
+.ai-handle-bar{width:36px;height:4px;background:#2e3039;border-radius:2px;margin:12px auto 0;flex-shrink:0;}
+.ai-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid rgba(201,168,76,0.08);flex-shrink:0;}
+.ai-hdr-l{display:flex;align-items:center;gap:10px;}
+.ai-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1e1a28,#141519);border:1.5px solid rgba(201,168,76,0.35);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:#e2c06a;flex-shrink:0;}
+.ai-hdr-name{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:500;color:#e8e4d9;line-height:1;}
+.ai-hdr-sub{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:#5a5e6e;text-transform:uppercase;margin-top:2px;}
+.ai-close{width:30px;height:30px;border-radius:50%;border:1px solid #2e3039;background:transparent;color:#5a5e6e;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;}
+.ai-close:hover{border-color:rgba(201,168,76,0.35);color:#e2c06a;}
+.ai-ctx-bar{display:flex;gap:7px;padding:8px 16px;border-bottom:1px solid rgba(201,168,76,0.06);overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
+.ai-ctx-bar::-webkit-scrollbar{display:none;}
+.ai-pill{display:flex;align-items:center;gap:5px;background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.12);border-radius:20px;padding:4px 10px;white-space:nowrap;font-family:'DM Mono',monospace;font-size:9px;color:#8b8fa0;}
+.ai-pill b{color:#e2c06a;font-weight:600;}
+#aiMsgs{flex:1;overflow-y:auto;padding:10px 0 4px;display:flex;flex-direction:column;gap:3px;scrollbar-width:none;min-height:100px;}
+#aiMsgs::-webkit-scrollbar{display:none;}
+.ai-msg{display:flex;padding:2px 14px;animation:msgIn 0.3s ease both;}
+@keyframes msgIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.ai-msg.u{justify-content:flex-end;}.ai-msg.a{justify-content:flex-start;}
+.ai-bubble{max-width:82%;padding:10px 14px;border-radius:16px;font-family:'DM Sans',sans-serif;font-size:13.5px;line-height:1.5;}
+.ai-msg.u .ai-bubble{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.22);color:#e8e4d9;border-bottom-right-radius:4px;}
+.ai-msg.a .ai-bubble{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:#b8bbc8;border-bottom-left-radius:4px;}
+.ai-msg.a .ai-bubble strong{color:#e2c06a;}
+.ai-typing{display:flex;align-items:center;gap:5px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px;border-bottom-left-radius:4px;margin:2px 14px;width:fit-content;}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:#c9a84c;animation:bnc 1.2s ease infinite;}
+.ai-dot:nth-child(2){animation-delay:0.2s;}.ai-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes bnc{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+.ai-suggests{display:flex;gap:7px;padding:8px 14px;overflow-x:auto;flex-shrink:0;scrollbar-width:none;}
+.ai-suggests::-webkit-scrollbar{display:none;}
+.ai-chip{background:transparent;border:1px solid #2e3039;border-radius:20px;padding:7px 13px;font-family:'DM Sans',sans-serif;font-size:11.5px;color:#8b8fa0;cursor:pointer;white-space:nowrap;transition:all 0.2s;flex-shrink:0;}
+.ai-chip:hover{border-color:rgba(201,168,76,0.5);color:#e2c06a;}
+.ai-input-row{display:flex;align-items:flex-end;gap:8px;padding:10px 14px 20px;border-top:1px solid rgba(201,168,76,0.08);flex-shrink:0;}
+#aiInput{flex:1;background:rgba(255,255,255,0.04);border:1px solid #2e3039;border-radius:20px;padding:10px 16px;font-family:'DM Sans',sans-serif;font-size:13px;color:#e8e4d9;resize:none;outline:none;transition:border-color 0.2s;min-height:42px;max-height:110px;overflow-y:auto;line-height:1.4;}
+#aiInput:focus{border-color:rgba(201,168,76,0.4);}#aiInput::placeholder{color:#5a5e6e;}
+.ai-mic{width:42px;height:42px;border-radius:50%;background:#1d1f26;border:1px solid #2e3039;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#8b8fa0;transition:all 0.2s;flex-shrink:0;}
+.ai-mic.on{border-color:#2dd4a0;color:#2dd4a0;}
+.ai-send{width:42px;height:42px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;flex-shrink:0;background:linear-gradient(135deg,#c9a84c,#a8722a);color:#0c0d0f;box-shadow:0 3px 14px rgba(201,168,76,0.3);}
+.ai-send:hover{transform:scale(1.05);}
+.ai-send:disabled{opacity:0.3;transform:none;cursor:default;background:#1d1f26;box-shadow:none;color:#5a5e6e;}
+.ai-transcript{padding:4px 20px;font-family:'DM Mono',monospace;font-size:11px;color:#2dd4a0;min-height:20px;}
+
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing">
+  <div class="landing-bg"><div class="landing-grid"></div></div>
+  <div class="landing-content">
+    <div class="landing-badge"><span class="badge-dot"></span>Coverage Navigator</div>
+    <div class="landing-logo">C<em>o</em>vigo</div>
+    <div class="landing-logo-sub">Street · Coverage · System</div>
+    <div class="landing-divider"></div>
+    <div class="landing-desc">Navigate every street.<br>Leave nothing uncovered.</div>
+    <button class="landing-enter" onclick="enterApp()">
+      Begin Session
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="appHeader">
+    <div class="header-logo">C<em>o</em>vigo</div>
+    <div class="header-right">
+      <div class="skipped-badge hidden" id="skippedBadge" onclick="showMissedPanel()">
+        <span class="skipped-badge-dot"></span>
+        <span class="skipped-badge-text" id="skippedBadgeText">0 missed</span>
+      </div>
+      <div class="header-status">
+        <span class="status-pip" id="statusPip"></span>
+        <span class="status-label" id="statusLabel">Initialising</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="map">
+    <div id="navBanner">
+      <div class="nav-card">
+        <div class="nav-icon-col" id="navIconCol">
+          <svg class="nav-arrow-svg" id="navArrowSvg" viewBox="0 0 40 40">
+            <path id="navArrowPath" d="M20 4 L34 30 L20 22 L6 30 Z"/>
+          </svg>
+        </div>
+        <div class="nav-body">
+          <div class="nav-action" id="navAction">Calculating…</div>
+          <div class="nav-street" id="navStreet">Awaiting GPS signal</div>
+        </div>
+        <div class="nav-dist-col">
+          <div class="nav-dist-num" id="navDist">—</div>
+          <div class="nav-dist-unit" id="navDistUnit">metres</div>
+        </div>
+      </div>
+      <div class="nav-next-bar">Then — <strong id="navNextText">—</strong></div>
+    </div>
+
+    <div class="map-control-cluster">
+      <div class="map-ctrl-btn" id="locateBtn" onclick="locateMe()" title="My location">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          <circle cx="12" cy="12" r="8" stroke-dasharray="3 5" stroke-width="1.2"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="sheet">
+    <div class="sheet-handle" onclick="toggleSheet()">
+      <div class="sheet-handle-left">
+        <span class="sheet-step" id="sheetStep">Step 01</span>
+        <span class="sheet-title" id="sheetTitle">Select your area</span>
+      </div>
+      <div class="sheet-chevron" id="sheetChevron">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 5l5 5 5-5"/></svg>
+      </div>
+    </div>
+
+    <!-- Extended dashboard -->
+    <div class="dashboard hidden sheet-section" id="dashboard">
+      <div class="stats-trio">
+        <div class="stat-cell"><div class="stat-num" id="statPct">0%</div><div class="stat-lbl">Covered</div></div>
+        <div class="stat-cell"><div class="stat-num" id="statRemain">—</div><div class="stat-lbl">Remaining</div></div>
+        <div class="stat-cell"><div class="stat-num stat-num crimson" id="statSkipped">0</div><div class="stat-lbl">Missed</div></div>
+      </div>
+      <div class="stats-duo">
+        <div class="stat-cell"><div class="stat-num" id="statHouses">—</div><div class="stat-lbl">Houses left</div></div>
+        <div class="stat-cell"><div class="stat-num" id="statETA">—</div><div class="stat-lbl">Est. time left</div></div>
+      </div>
+      <div class="stats-trio" style="border-top:1px solid rgba(201,168,76,0.07)">
+        <div class="stat-cell"><div class="stat-num emerald" id="statWalked">0m</div><div class="stat-lbl">Walked</div></div>
+        <div class="stat-cell"><div class="stat-num" id="statDone">0</div><div class="stat-lbl">Done</div></div>
+        <div class="stat-cell"><div class="stat-num" id="statTotal">—</div><div class="stat-lbl">Total</div></div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress-section hidden sheet-section" id="progressWrap">
+      <div class="progress-row">
+        <span class="progress-label">Coverage Progress</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend-row hidden sheet-section" id="legendRow">
+      <div class="legend-item"><div class="legend-swatch" style="background:#3a3f50"></div>Unwalked</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--gold2)"></div>Next</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--emerald)"></div>Done</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--skipped)"></div>Missed</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--ember)"></div>Trail</div>
+      <div class="legend-item"><div style="width:20px;height:0;border-top:2px dashed var(--lavender);margin-top:1px"></div>To start</div>
+    </div>
+
+    <!-- Missed streets panel -->
+    <div class="missed-section hidden sheet-section" id="missedSection">
+      <div class="missed-header">
+        <span class="missed-title">Missed Streets</span>
+        <span class="missed-count" id="missedCount">0</span>
+      </div>
+      <div class="missed-list" id="missedList">
+        <div class="missed-empty">No missed streets yet</div>
+      </div>
+    </div>
+
+    <!-- Direction picker -->
+    <div class="dir-section hidden sheet-section" id="dirSection">
+      <div class="section-label">Sweep Direction</div>
+      <div class="dir-grid">
+        <button class="dir-pill on" data-dir="auto" onclick="selectDir(this)"><span class="dir-icon">🔄</span>Auto</button>
+        <button class="dir-pill" data-dir="NS" onclick="selectDir(this)"><span class="dir-icon">⬇️</span>N→S</button>
+        <button class="dir-pill" data-dir="SN" onclick="selectDir(this)"><span class="dir-icon">⬆️</span>S→N</button>
+        <button class="dir-pill" data-dir="EW" onclick="selectDir(this)"><span class="dir-icon">⬅️</span>E→W</button>
+        <button class="dir-pill" data-dir="WE" onclick="selectDir(this)"><span class="dir-icon">➡️</span>W→E</button>
+      </div>
+    </div>
+
+    <!-- Pin row -->
+    <div class="pin-row hidden sheet-section" id="startPinRow">
+      <div class="pin-indicator"></div>
+      <div class="pin-text" id="startPinInfo">No start pin — route starts from <strong>area edge</strong></div>
+    </div>
+
+    <div class="hint-box" id="hintBox">
+      Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner), then configure and generate your route.
+    </div>
+
+    <div class="btn-section">
+      <div class="btn-row-2">
+        <button class="cov-btn btn-outline" id="btnDraw" onclick="activateDraw()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          Draw Area
+        </button>
+        <button class="cov-btn btn-gold" id="btnGenerate" onclick="generateRoute()" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Generate
+        </button>
+      </div>
+      <button class="cov-btn btn-ghost" id="btnSetStart" onclick="activateStartPin()" disabled style="width:100%">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.75-7-11a7 7 0 1 1 14 0c0 4.25-7 11-7 11z"/><circle cx="12" cy="10" r="2"/></svg>
+        Set Start Position
+      </button>
+      <div class="btn-row-2">
+        <button class="cov-btn btn-emerald" id="btnStart" onclick="startNavigation()" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start Walking
+        </button>
+        <button class="cov-btn btn-amber" id="btnPause" onclick="pauseNavigation()" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          Pause
+        </button>
+        <button class="cov-btn btn-reset" id="btnReset" onclick="resetAll()" title="Reset">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="loadingOverlay">
+  <div class="loader-ring">
+    <div class="loader-ring-track"></div>
+    <div class="loader-ring-spin"></div>
+    <div class="loader-logo">C</div>
+  </div>
+  <div class="loader-text" id="loadingText">Fetching streets…</div>
+  <div class="loader-sub" id="loadingSub">Querying OpenStreetMap</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: landing
+═══════════════════════════════════════════════════════════ */
+function enterApp(){
+  const landing=document.getElementById('landing'),app=document.getElementById('app');
+  landing.classList.add('exit');
+  setTimeout(()=>{landing.style.display='none';app.classList.add('visible');},900);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: state
+═══════════════════════════════════════════════════════════ */
+const state={
+  phase:'draw',
+  drawnLayer:null, boundaryCoords:null,
+  segments:[], routeOrder:[], currentIdx:0,
+  // GPS
+  watchId:null, locateWatchId:null, autoFollow:false,
+  userMarker:null, userPos:null, userHeading:null, prevPos:null,
+  lastGpsTick:0, // for debounce
+  // UI
+  sheetOpen:true,
+  // Route metrics
+  totalDist:0, completedDist:0, walkedDist:0,
+  // Start pin
+  startPin:null, startPinMarker:null, sweepDir:'auto', placingPin:false,
+  // Map overlays
+  routeConnector:null, walkToStartLine:null, walkToStartCompleted:false,
+  breadcrumbLine:null, breadcrumbPts:[],
+  // Segment tracking
+  segmentProgress:{},   // segIdx -> [{lat,lng}]
+  // Intersection graph
+  graph:{},             // nodeKey -> {lat,lng,segments:[segIdx]}
+  // Skipped/missed
+  skippedSegments:new Set(),
+  lastNearIntersection:null, intersectionApproachTime:0,
+};
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: map.js  (map init + draw controls)
+═══════════════════════════════════════════════════════════ */
+const map=L.map('map',{zoomControl:true,attributionControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
+  // performance: use low-quality tiles when panning quickly
+}).addTo(map);
+
+const drawnItems=new L.FeatureGroup().addTo(map);
+const drawControl=new L.Control.Draw({
+  edit:{featureGroup:drawnItems,edit:false,remove:true},
+  draw:{
+    polygon:{shapeOptions:{color:'#c9a84c',fillOpacity:0.08,weight:1.5,dashArray:'5 4'}},
+    circle:{shapeOptions:{color:'#c9a84c',fillOpacity:0.08,weight:1.5}},
+    rectangle:{shapeOptions:{color:'#c9a84c',fillOpacity:0.08,weight:1.5}},
+    polyline:false,marker:false,circlemarker:false,
+  },
+});
+map.addControl(drawControl);
+
+map.on(L.Draw.Event.CREATED,e=>{
+  drawnItems.clearLayers(); drawnItems.addLayer(e.layer);
+  state.drawnLayer=e.layer; state.boundaryCoords=getBoundaryCoords(e.layer);
+  enableBtn('btnGenerate'); enableBtn('btnSetStart');
+  setStatus('Area set','active');
+  setPhase('02','Configure & Generate');
+  setHint('Area selected. Optionally set a <strong>Start Position</strong> and choose a <strong>Sweep Direction</strong>, then tap <strong>Generate</strong>.');
+  show('dirSection'); show('startPinRow');
+  toast('Area selected');
+});
+map.on(L.Draw.Event.DELETED,()=>{
+  state.drawnLayer=null; state.boundaryCoords=null;
+  disableBtn('btnGenerate'); disableBtn('btnSetStart');
+  setStatus('Ready','');
+  hide('dirSection'); hide('startPinRow');
+  setHint('Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner).');
+});
+map.on('click',e=>{if(state.placingPin)placeStartPin(e.latlng);});
+
+// Auto-GPS on load
+navigator.geolocation?.getCurrentPosition(
+  p=>{map.setView([p.coords.latitude,p.coords.longitude],16);setStatus('GPS Ready','active');},
+  ()=>{map.setView([51.505,-0.09],14);setStatus('No GPS','');},
+  {timeout:8000}
+);
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: geo helpers
+═══════════════════════════════════════════════════════════ */
+function haversine(a,b){const R=6371000,φ1=a.lat*Math.PI/180,φ2=b.lat*Math.PI/180,Δφ=(b.lat-a.lat)*Math.PI/180,Δλ=(b.lng-a.lng)*Math.PI/180,x=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function bearing(from,to){const φ1=from.lat*Math.PI/180,φ2=to.lat*Math.PI/180,Δλ=(to.lng-from.lng)*Math.PI/180,y=Math.sin(Δλ)*Math.cos(φ2),x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);return(Math.atan2(y,x)*180/Math.PI+360)%360;}
+function angleDiff(a,b){let d=((b-a)+360)%360;if(d>180)d-=360;return Math.abs(d);}
+function segmentMidpoint(seg){return seg.latlngs[Math.floor(seg.latlngs.length/2)];}
+function segmentLength(seg){let d=0;for(let i=1;i<seg.latlngs.length;i++)d+=haversine(seg.latlngs[i-1],seg.latlngs[i]);return d;}
+function nearestEndpoint(seg,pt){const a=seg.latlngs[0],b=seg.latlngs[seg.latlngs.length-1];return haversine(a,pt)<haversine(b,pt)?a:b;}
+function nearestPointOnSegment(pt,a,b){const dx=b.lng-a.lng,dy=b.lat-a.lat,lenSq=dx*dx+dy*dy;if(lenSq===0)return a;let t=((pt.lng-a.lng)*dx+(pt.lat-a.lat)*dy)/lenSq;t=Math.max(0,Math.min(1,t));return{lat:a.lat+t*dy,lng:a.lng+t*dx};}
+function distToSegmentLine(pt,seg){let m=Infinity;for(let i=1;i<seg.latlngs.length;i++){const c=nearestPointOnSegment(pt,seg.latlngs[i-1],seg.latlngs[i]);m=Math.min(m,haversine(pt,c));}return m;}
+function formatDist(m){return m<1000?Math.round(m)+'m':(m/1000).toFixed(1)+'km';}
+function formatTime(min){if(min<1)return'<1 min';if(min<60)return Math.round(min)+' min';return Math.floor(min/60)+'h '+Math.round(min%60)+'m';}
+function getBoundaryCoords(layer){if(layer instanceof L.Circle)return{type:'circle',center:layer.getLatLng(),radius:layer.getRadius()};return{type:'polygon',latlngs:layer.getLatLngs()[0]};}
+function nodeKey(pt){return `${pt.lat.toFixed(6)},${pt.lng.toFixed(6)}`;}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: routing.js — intersection graph + route building
+═══════════════════════════════════════════════════════════ */
+
+// Build intersection graph from segments
+function buildGraph(segments){
+  const graph={};
+  segments.forEach((seg,segIdx)=>{
+    [seg.latlngs[0], seg.latlngs[seg.latlngs.length-1]].forEach(pt=>{
+      const k=nodeKey(pt);
+      if(!graph[k])graph[k]={lat:pt.lat,lng:pt.lng,segments:[]};
+      if(!graph[k].segments.includes(segIdx))graph[k].segments.push(segIdx);
+    });
+  });
+  // Mark dead-ends: nodes with only 1 connected segment
+  Object.values(graph).forEach(node=>{node.isDeadEnd=node.segments.length===1;});
+  return graph;
+}
+
+// Is this segment a dead-end (starts or ends at a degree-1 node)?
+function isDeadEnd(seg,graph){
+  const a=nodeKey(seg.latlngs[0]),b=nodeKey(seg.latlngs[seg.latlngs.length-1]);
+  return (graph[a]&&graph[a].segments.length===1)||(graph[b]&&graph[b].segments.length===1);
+}
+
+// Hybrid route: nearest-neighbour + sweep bias + dead-end priority
+function buildRoute(segments){
+  if(!segments.length)return[];
+  const graph=state.graph;
+  const n=segments.length,visited=new Array(n).fill(false),order=[];
+  let startIdx=0;
+
+  // Auto-start: closest to GPS if no pin set
+  if(state.startPin){
+    let best=Infinity;
+    segments.forEach((s,i)=>{
+      const d=Math.min(haversine(state.startPin,s.latlngs[0]),haversine(state.startPin,s.latlngs[s.latlngs.length-1]));
+      if(d<best){best=d;startIdx=i;}
+    });
+  } else if(state.userPos){
+    // Auto: closest segment to current GPS
+    let best=Infinity;
+    segments.forEach((s,i)=>{
+      const d=haversine(state.userPos,segmentMidpoint(s));
+      if(d<best){best=d;startIdx=i;}
+    });
+  } else {
+    switch(state.sweepDir){
+      case'NS':{let m=-Infinity;segments.forEach((s,i)=>{const mp=segmentMidpoint(s);if(mp.lat>m){m=mp.lat;startIdx=i;}});break;}
+      case'SN':{let m=Infinity;segments.forEach((s,i)=>{const mp=segmentMidpoint(s);if(mp.lat<m){m=mp.lat;startIdx=i;}});break;}
+      case'EW':{let m=-Infinity;segments.forEach((s,i)=>{const mp=segmentMidpoint(s);if(mp.lng>m){m=mp.lng;startIdx=i;}});break;}
+      case'WE':{let m=Infinity;segments.forEach((s,i)=>{const mp=segmentMidpoint(s);if(mp.lng<m){m=mp.lng;startIdx=i;}});break;}
+      default:{let m=Infinity;segments.forEach((s,i)=>{const mp=segmentMidpoint(s);if(mp.lat<m){m=mp.lat;startIdx=i;}});}
+    }
+  }
+
+  visited[startIdx]=true; order.push(startIdx);
+  let lastPt=segments[startIdx].latlngs[segments[startIdx].latlngs.length-1];
+
+  while(order.length<n){
+    let best=-1,bestScore=Infinity;
+    for(let i=0;i<n;i++){
+      if(visited[i])continue;
+      const seg=segments[i];
+      const ep=nearestEndpoint(seg,lastPt);
+      const dist=haversine(lastPt,ep);
+      const mp=segmentMidpoint(seg);
+      let pen=0;
+      if(state.sweepDir==='NS')pen=(mp.lat-lastPt.lat)*50000;
+      if(state.sweepDir==='SN')pen=(lastPt.lat-mp.lat)*50000;
+      if(state.sweepDir==='EW')pen=(mp.lng-lastPt.lng)*50000;
+      if(state.sweepDir==='WE')pen=(lastPt.lng-mp.lng)*50000;
+      // Dead-end bonus: prioritise visiting dead-ends early
+      const deadBonus=isDeadEnd(seg,graph)?-dist*0.4:0;
+      const score=dist+Math.max(0,pen)+deadBonus;
+      if(score<bestScore){bestScore=score;best=i;}
+    }
+    if(best===-1)break;
+    visited[best]=true; order.push(best);
+    lastPt=segments[best].latlngs[segments[best].latlngs.length-1];
+  }
+  return order;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: analytics.js — house density + ETA
+═══════════════════════════════════════════════════════════ */
+const AVG_FRONTAGE=8; // metres per house
+const WALK_SPEED=1.3; // m/s average walking speed
+
+function estimateHouses(seg){
+  return Math.max(0,Math.round(segmentLength(seg)/AVG_FRONTAGE));
+}
+
+function totalHousesRemaining(){
+  return state.routeOrder.slice(state.currentIdx)
+    .filter(i=>!state.segments[i]?.completed&&!state.skippedSegments.has(i))
+    .reduce((sum,i)=>sum+(state.segments[i]?.houseEstimate||0),0);
+}
+
+function estimateTimeRemaining(){
+  const remDist=state.totalDist-state.completedDist;
+  if(remDist<=0)return 0;
+  return (remDist/WALK_SPEED)/60; // minutes
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: segments.js
+═══════════════════════════════════════════════════════════ */
+
+// Smarter completion: distance + heading alignment + coverage fraction
+function checkSegmentCompletion(userPos){
+  if(state.currentIdx>=state.routeOrder.length)return;
+  const segIdx=state.routeOrder[state.currentIdx];
+  const seg=state.segments[segIdx];
+  if(!seg||seg.completed||seg.skipped){advanceSegment();return;}
+
+  const DIST_THRESHOLD=10; // on-segment distance (metres)
+  const END_THRESHOLD=25;
+  const HEADING_TOLERANCE=40; // degrees
+
+  const distToLine=distToSegmentLine(userPos,seg);
+  const endPt=seg.latlngs[seg.latlngs.length-1];
+  const distToEnd=haversine(userPos,endPt);
+
+  // Track GPS points while close
+  if(!state.segmentProgress[segIdx])state.segmentProgress[segIdx]=[];
+  if(distToLine<DIST_THRESHOLD){
+    // Heading check: is user heading roughly along this segment?
+    let headingOk=true;
+    if(state.userHeading!=null&&seg.latlngs.length>=2){
+      const segBrg=bearing(seg.latlngs[0],seg.latlngs[seg.latlngs.length-1]);
+      const diff=angleDiff(state.userHeading,segBrg);
+      headingOk=(diff<HEADING_TOLERANCE)||(diff>180-HEADING_TOLERANCE);
+    }
+    if(headingOk) state.segmentProgress[segIdx].push({lat:userPos.lat,lng:userPos.lng});
+  }
+
+  // Estimate walked length along segment
+  const pts=state.segmentProgress[segIdx]||[];
+  let walkedLen=0;
+  for(let i=1;i<pts.length;i++)walkedLen+=haversine(pts[i-1],pts[i]);
+  const segLen=segmentLength(seg);
+  const walkedFrac=segLen>0?walkedLen/segLen:0;
+
+  if(distToEnd<END_THRESHOLD||(walkedFrac>=0.7&&distToLine<DIST_THRESHOLD)){
+    markSegmentDone(segIdx);
+    advanceSegment();
+  }
+}
+
+function markSegmentDone(segIdx){
+  const seg=state.segments[segIdx];
+  if(seg.completed||seg.skipped)return;
+  seg.completed=true;
+  // Animated transition to emerald
+  seg.polyline.setStyle({color:'#2dd4a0',weight:7,opacity:1});
+  seg.polyline.bringToFront();
+  seg.polyline.getElement()?.classList.add('seg-flash');
+  state.completedDist+=segmentLength(seg);
+  // Vibration feedback
+  if(navigator.vibrate)navigator.vibrate([60,30,40]);
+  updateStats();
+  updateMissedPanel();
+}
+
+function markSegmentSkipped(segIdx){
+  const seg=state.segments[segIdx];
+  if(!seg||seg.completed||seg.skipped)return;
+  seg.skipped=true;
+  state.skippedSegments.add(segIdx);
+  seg.polyline.setStyle({color:'#e05252',weight:5,opacity:0.9});
+  seg.polyline.bringToFront();
+  updateStats();
+  updateMissedPanel();
+  // Warn toast
+  const name=seg.name||'Unnamed street';
+  toastWarn(`⚠ Missed: ${name} — will be added at end`);
+}
+
+function advanceSegment(){
+  // Append any skipped segments to end of route order
+  state.currentIdx++;
+  // Flush skipped: inject them at the end if not already there
+  state.skippedSegments.forEach(sIdx=>{
+    const seg=state.segments[sIdx];
+    if(!seg.completed&&!state.routeOrder.slice(state.currentIdx).includes(sIdx)){
+      state.routeOrder.push(sIdx);
+    }
+  });
+  if(state.currentIdx>=state.routeOrder.length){finishRoute();return;}
+  const nextIdx=state.routeOrder[state.currentIdx];
+  const next=state.segments[nextIdx];
+  if(next&&!next.completed&&!next.skipped) next.polyline.setStyle({color:'#c9a84c',weight:6,opacity:1});
+  updateNavBanner();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: gps.js — missed detection + battery modes
+═══════════════════════════════════════════════════════════ */
+
+const GPS_NAV={enableHighAccuracy:true,timeout:10000,maximumAge:2000};
+const GPS_IDLE={enableHighAccuracy:false,timeout:20000,maximumAge:10000};
+
+// Debounce GPS updates to max 1/second
+let _lastGpsHandle=0;
+function onPosition(pos){
+  const now=Date.now();
+  if(now-_lastGpsHandle<900)return; // debounce ~1s
+  _lastGpsHandle=now;
+
+  const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+  const heading=pos.coords.heading;
+  state.prevPos=state.userPos; state.userPos=ll;
+  if(heading!=null&&!isNaN(heading)) state.userHeading=heading;
+  else if(state.prevPos) state.userHeading=bearing(state.prevPos,ll);
+
+  // Track walked distance
+  if(state.prevPos) state.walkedDist+=haversine(state.prevPos,ll);
+
+  updateUserMarker(ll,state.userHeading);
+
+  // Breadcrumb
+  state.breadcrumbPts.push([ll.lat,ll.lng]);
+  if(state.breadcrumbLine) state.breadcrumbLine.setLatLngs(state.breadcrumbPts);
+
+  updateWalkToStartLine();
+  map.panTo([ll.lat,ll.lng],{animate:true,duration:0.5});
+
+  // Core logic
+  checkSegmentCompletion(ll);
+  detectMissedStreets(ll);
+  updateNavBanner();
+  updateStats();
+}
+
+// Missed street detection via intersection graph
+let _missedCooldown={};
+function detectMissedStreets(userPos){
+  if(state.currentIdx>=state.routeOrder.length)return;
+  const INTERSECT_R=22; // metres to consider "at intersection"
+  const LEAVE_R=45;     // metres away = "left without walking"
+
+  // Find nearby unvisited planned segments that we're NOT currently targeting
+  state.routeOrder.forEach((segIdx,orderPos)=>{
+    if(orderPos<=state.currentIdx)return;
+    const seg=state.segments[segIdx];
+    if(!seg||seg.completed||seg.skipped)return;
+
+    // Check if user was near start of this segment but is now moving away
+    const startPt=seg.latlngs[0];
+    const distToStart=haversine(userPos,startPt);
+
+    // Already warned recently?
+    const coolKey=`miss_${segIdx}`;
+    const now=Date.now();
+    if(_missedCooldown[coolKey]&&now-_missedCooldown[coolKey]<60000)return;
+
+    if(distToStart<INTERSECT_R){
+      // User is near start of a future planned segment
+      _missedCooldown[`near_${segIdx}`]=now;
+    } else if(_missedCooldown[`near_${segIdx}`]&&now-_missedCooldown[`near_${segIdx}`]<8000&&distToStart>LEAVE_R){
+      // Was near 8 seconds ago, now >45m away → skipped
+      _missedCooldown[coolKey]=now;
+      // Only skip if it's in the next 5 planned segments (was imminent)
+      if(orderPos-state.currentIdx<=5){
+        markSegmentSkipped(segIdx);
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: overpass (unchanged)
+═══════════════════════════════════════════════════════════ */
+const MIRRORS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
+
+async function fetchStreets(boundary){
+  const types='["highway"~"residential|service|footway|path|pedestrian|living_street|unclassified|tertiary|secondary|primary|cycleway|track|steps"]';
+  let query;
+  if(boundary.type==='circle'){const{lat,lng}=boundary.center;const r=Math.round(boundary.radius);query=`[out:json][timeout:25];(way${types}(around:${r},${lat},${lng}););out geom;`;}
+  else{const pts=boundary.latlngs.map(ll=>`${ll.lat} ${ll.lng}`).join(' ');query=`[out:json][timeout:25];(way${types}(poly:"${pts}"););out geom;`;}
+  const enc=encodeURIComponent(query);let lastErr;
+  for(const m of MIRRORS){
+    try{
+      setLoadingText('Fetching streets…',new URL(m).hostname);
+      const res=await fetch(`${m}?data=${enc}`,{signal:AbortSignal.timeout(20000)});
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      const data=await res.json();
+      if(data?.elements!==undefined)return data;
+      throw new Error('Bad response');
+    }catch(e){lastErr=e;}
+  }
+  throw new Error('All mirrors failed: '+(lastErr?.message||''));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: generate route
+═══════════════════════════════════════════════════════════ */
+async function generateRoute(){
+  if(!state.boundaryCoords){toast('Draw an area first.');return;}
+  showLoading('Fetching streets…','Querying OpenStreetMap');
+  setStatus('Loading…','loading');
+  try{
+    state.segments.forEach(s=>{if(s.polyline)map.removeLayer(s.polyline);});
+    if(state.routeConnector){map.removeLayer(state.routeConnector);state.routeConnector=null;}
+    state.segments=[];state.routeOrder=[];state.currentIdx=0;
+    state.totalDist=0;state.completedDist=0;state.walkedDist=0;
+    state.breadcrumbPts=[];state.segmentProgress={};
+    state.skippedSegments=new Set();state.graph={};
+    if(state.breadcrumbLine){map.removeLayer(state.breadcrumbLine);state.breadcrumbLine=null;}
+
+    const data=await fetchStreets(state.boundaryCoords);
+    if(!data.elements?.length){hideLoading();toast('No streets found — try a larger area.');return;}
+
+    setLoadingText('Building route…',`Processing ${data.elements.length} segments`);
+
+    data.elements.forEach((el,i)=>{
+      if(el.type!=='way'||!el.geometry)return;
+      const latlngs=el.geometry.map(pt=>({lat:pt.lat,lng:pt.lon}));
+      if(latlngs.length<2)return;
+      // Performance: simplify polyline
+      const polyline=L.polyline(latlngs,{
+        color:'#3a3f50',weight:5,opacity:0.75,lineJoin:'round',
+        smoothFactor:1.5 // reduces vertices for smoother rendering
+      }).addTo(map);
+      // Segment popup on tap
+      const seg={latlngs,polyline,completed:false,skipped:false,id:i,name:el.tags?.name||''};
+      seg.length=segmentLength(seg);
+      seg.houseEstimate=estimateHouses(seg);
+      polyline.bindPopup(()=>segmentPopup(seg),{className:'',maxWidth:240});
+      state.segments.push(seg);
+      state.totalDist+=seg.length;
+    });
+
+    if(!state.segments.length){hideLoading();toast('No usable street data.');return;}
+
+    // Build graph
+    state.graph=buildGraph(state.segments);
+
+    // Build route order
+    state.routeOrder=buildRoute(state.segments);
+
+    // Orient segments
+    state.routeOrder.forEach((idx,i)=>{
+      if(i===0)return;
+      const prevIdx=state.routeOrder[i-1];
+      const prevEnd=state.segments[prevIdx].latlngs[state.segments[prevIdx].latlngs.length-1];
+      const seg=state.segments[idx];
+      const dStart=haversine(prevEnd,seg.latlngs[0]),dEnd=haversine(prevEnd,seg.latlngs[seg.latlngs.length-1]);
+      if(dEnd<dStart){seg.latlngs.reverse();seg.polyline.setLatLngs(seg.latlngs);}
+    });
+
+    // Dashed route connector
+    const routePts=state.routeOrder.flatMap(idx=>state.segments[idx].latlngs.map(p=>[p.lat,p.lng]));
+    state.routeConnector=L.polyline(routePts,{color:'rgba(201,168,76,0.18)',weight:1.5,dashArray:'5 8',smoothFactor:2}).addTo(map);
+
+    // Gold on first segment
+    state.segments[state.routeOrder[0]].polyline.setStyle({color:'#c9a84c',weight:6,opacity:1});
+
+    // Persist to IndexedDB
+    saveProgressToIDB();
+
+    const allPts=state.segments.flatMap(s=>s.latlngs);
+    map.fitBounds(L.latLngBounds(allPts.map(p=>[p.lat,p.lng])),{padding:[30,30]});
+    hideLoading();
+    setStatus('Route ready','active');
+    state.phase='generated';
+    const dl={auto:'auto',NS:'N→S',SN:'S→N',EW:'E→W',WE:'W→E'};
+    setPhase('03',`${state.segments.length} streets · ${formatDist(state.totalDist)}`);
+    setHint(`Route covers <strong>${state.segments.length} segments</strong> (≈${formatDist(state.totalDist)}) · ~${Math.round(totalHousesRemaining())} houses. Tap <strong>Start Walking</strong>.`);
+    enableBtn('btnStart');
+    show('dashboard'); show('progressWrap'); show('legendRow'); show('missedSection');
+    updateStats(); updateMissedPanel();
+    toast(`${state.segments.length} streets · ${Math.round(totalHousesRemaining())} est. houses`);
+  }catch(err){
+    hideLoading();setStatus('Error','');
+    const msg=err.message?.includes('mirrors')||err.name==='TypeError'?'Cannot reach OpenStreetMap. Open the file directly in your browser.':err.name==='TimeoutError'?'Request timed out — try a smaller area.':'Error: '+err.message;
+    setHint('⚠ <strong>'+msg+'</strong>');
+    toast(msg);
+    enableBtn('btnGenerate');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: navigation
+═══════════════════════════════════════════════════════════ */
+function startNavigation(){
+  if(!state.segments.length){toast('Generate a route first.');return;}
+  state.phase='navigating';
+  setStatus('Walking','active');
+  setPhase('04','In progress…');
+  disableBtn('btnStart');enableBtn('btnPause');
+  disableBtn('btnGenerate');disableBtn('btnDraw');disableBtn('btnSetStart');
+  document.getElementById('navBanner').classList.add('visible');
+  collapseSheet();
+
+  if(state.breadcrumbLine)map.removeLayer(state.breadcrumbLine);
+  state.breadcrumbPts=[];
+  state.breadcrumbLine=L.polyline([],{color:'#e07b3a',weight:5,opacity:0.95,lineJoin:'round',smoothFactor:1}).addTo(map);
+
+  if(state.locateWatchId){navigator.geolocation.clearWatch(state.locateWatchId);state.locateWatchId=null;}
+  state.autoFollow=false;
+  document.getElementById('locateBtn').classList.remove('on');
+
+  if(navigator.geolocation){
+    state.watchId=navigator.geolocation.watchPosition(onPosition,e=>toast('GPS: '+e.message),GPS_NAV);
+  }else{toast('GPS not available on this device.');}
+  updateNavBanner();
+}
+
+function pauseNavigation(){
+  if(state.phase==='navigating'){
+    state.phase='paused';
+    if(state.watchId)navigator.geolocation.clearWatch(state.watchId);
+    // Switch to idle GPS mode while paused
+    if(navigator.geolocation){
+      state.watchId=navigator.geolocation.watchPosition(pos=>{
+        const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+        state.userPos=ll;updateUserMarker(ll,state.userHeading);
+      },null,GPS_IDLE);
+    }
+    setStatus('Paused','loading');
+    const btn=document.getElementById('btnPause');
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume';
+    btn.onclick=resumeNavigation;
+    toast('Paused.');
+  }
+}
+function resumeNavigation(){
+  state.phase='navigating';setStatus('Walking','active');
+  if(state.watchId)navigator.geolocation.clearWatch(state.watchId);
+  const btn=document.getElementById('btnPause');
+  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause';
+  btn.onclick=pauseNavigation;
+  if(navigator.geolocation)state.watchId=navigator.geolocation.watchPosition(onPosition,null,GPS_NAV);
+  toast('Resumed.');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: user marker + locate
+═══════════════════════════════════════════════════════════ */
+function updateUserMarker(ll,heading){
+  const rot=(heading!=null&&!isNaN(heading))?heading:0;
+  const html=`<div style="width:34px;height:34px;transform:rotate(${rot}deg);transform-origin:center;transition:transform 0.45s cubic-bezier(0.4,0,0.2,1);">
+    <svg viewBox="0 0 34 34" width="34" height="34">
+      <circle cx="17" cy="17" r="15" fill="rgba(12,13,15,0.9)" stroke="#c9a84c" stroke-width="1.5"/>
+      <polygon points="17,4 23,28 17,22 11,28" fill="#c9a84c"/>
+      <circle cx="17" cy="17" r="3" fill="rgba(201,168,76,0.4)"/>
+    </svg>
+  </div>`;
+  if(!state.userMarker){state.userMarker=L.marker([ll.lat,ll.lng],{icon:L.divIcon({html,iconSize:[34,34],iconAnchor:[17,17],className:''}),zIndexOffset:1000}).addTo(map);}
+  else{state.userMarker.setLatLng([ll.lat,ll.lng]);state.userMarker.setIcon(L.divIcon({html,iconSize:[34,34],iconAnchor:[17,17],className:''}));}
+}
+
+function locateMe(){
+  const btn=document.getElementById('locateBtn');
+  if(state.autoFollow){state.autoFollow=false;btn.classList.remove('on');toast('Auto-follow off.');return;}
+  if(!navigator.geolocation){toast('Geolocation not supported.');return;}
+  state.autoFollow=true;btn.classList.add('on');
+  toast('Locating…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    state.userPos=ll;
+    map.setView([ll.lat,ll.lng],map.getZoom()<16?17:map.getZoom(),{animate:true});
+    updateUserMarkerLocate(ll); drawWalkToStartLine(); toast('Location found.');
+  },err=>{state.autoFollow=false;btn.classList.remove('on');toast('GPS error: '+err.message);},{enableHighAccuracy:true,timeout:10000});
+  startLocateWatch();
+}
+
+function startLocateWatch(){
+  if(!navigator.geolocation)return;
+  if(state.locateWatchId){navigator.geolocation.clearWatch(state.locateWatchId);state.locateWatchId=null;}
+  state.locateWatchId=navigator.geolocation.watchPosition(pos=>{
+    const ll={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    const heading=pos.coords.heading;
+    state.prevPos=state.userPos;state.userPos=ll;
+    if(heading!=null&&!isNaN(heading))state.userHeading=heading;
+    else if(state.prevPos)state.userHeading=bearing(state.prevPos,ll);
+    if(state.phase!=='navigating'){updateUserMarkerLocate(ll);updateWalkToStartLine();if(state.autoFollow)map.panTo([ll.lat,ll.lng],{animate:true,duration:0.4});}
+  },null,GPS_IDLE);
+}
+
+function updateUserMarkerLocate(ll){
+  if(state.phase==='navigating')return;
+  const rot=(state.userHeading!=null&&!isNaN(state.userHeading))?state.userHeading:0;
+  const html=`<div style="width:30px;height:30px;transform:rotate(${rot}deg);transform-origin:center;transition:transform 0.45s cubic-bezier(0.4,0,0.2,1);">
+    <svg viewBox="0 0 30 30" width="30" height="30">
+      <circle cx="15" cy="15" r="13" fill="rgba(12,13,15,0.9)" stroke="#c9a84c" stroke-width="1.5"/>
+      <polygon points="15,3 20,24 15,19 10,24" fill="#c9a84c"/>
+    </svg>
+  </div>`;
+  if(!state.userMarker){state.userMarker=L.marker([ll.lat,ll.lng],{icon:L.divIcon({html,iconSize:[30,30],iconAnchor:[15,15],className:''}),zIndexOffset:1000}).addTo(map);}
+  else{state.userMarker.setLatLng([ll.lat,ll.lng]);state.userMarker.setIcon(L.divIcon({html,iconSize:[30,30],iconAnchor:[15,15],className:''}));}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: nav banner (maneuver engine)
+═══════════════════════════════════════════════════════════ */
+const ARROW_PATHS={
+  straight:'M20 4 L26 16 L22 16 L22 36 L18 36 L18 16 L14 16 Z',
+  'turn-left':'M14 4 L4 14 L10 14 L10 30 L26 30 L26 24 L16 24 L16 14 L22 14 Z',
+  'turn-right':'M26 4 L36 14 L30 14 L30 24 L14 24 L14 30 L30 30 L30 14 L36 14 Z',
+  'turn-slight-left':'M16 4 L6 18 L12 16 L16 28 L24 28 L20 16 L26 18 Z',
+  'turn-slight-right':'M24 4 L34 18 L28 16 L24 28 L16 28 L20 16 L14 18 Z',
+  uturn:'M22 6 A8 8 0 0 0 14 6 L14 34 L10 34 L18 36 L26 34 L22 34 L22 14 A2 2 0 0 1 26 14 A2 2 0 0 1 22 18',
+  arrive:'M20 4 L34 30 L20 22 L6 30 Z',
+};
+function getManeuver(from,to){let d=((to-from)+360)%360;if(d>180)d-=360;if(Math.abs(d)<20)return'straight';if(d>150||d<-150)return'uturn';if(d>=20&&d<60)return'turn-slight-right';if(d>=60&&d<150)return'turn-right';if(d<=-20&&d>-60)return'turn-slight-left';if(d<=-60)return'turn-left';return'straight';}
+function maneuverLabel(type,street){const base={straight:'Continue straight','turn-left':'Turn left','turn-right':'Turn right','turn-slight-left':'Keep left','turn-slight-right':'Keep right',uturn:'Make a U-turn',arrive:'You have arrived'}[type]||'Continue';return street?`${base} onto ${street}`:base;}
+function compassText(deg){return['North','NE','East','SE','South','SW','West','NW'][Math.round(deg/45)%8];}
+
+function updateNavBanner(){
+  if(state.currentIdx>=state.routeOrder.length)return;
+  const segIdx=state.routeOrder[state.currentIdx];
+  const seg=state.segments[segIdx];
+  if(!seg)return;
+  const targetPt=seg.latlngs[0];
+  let distToTarget=0,brg=0;
+  if(state.userPos){
+    distToTarget=haversine(state.userPos,targetPt);brg=bearing(state.userPos,targetPt);
+    if(distToSegmentLine(state.userPos,seg)<30){const ep=seg.latlngs[seg.latlngs.length-1];distToTarget=haversine(state.userPos,ep);brg=bearing(state.userPos,ep);}
+  }
+  let maneuver='straight';
+  if(state.currentIdx>0){const ps=state.segments[state.routeOrder[state.currentIdx-1]];const pp=ps.latlngs;if(pp.length>=2){const pb=bearing(pp[pp.length-2],pp[pp.length-1]);const tb=seg.latlngs.length>=2?bearing(seg.latlngs[0],seg.latlngs[1]):pb;maneuver=getManeuver(pb,tb);}}
+  const onSeg=state.userPos&&distToSegmentLine(state.userPos,seg)<40;
+  let actionText,streetText;
+  if(!state.userPos){actionText='Awaiting GPS…';streetText=seg.name||`Segment ${state.currentIdx+1} of ${state.routeOrder.length}`;}
+  else if(!onSeg){actionText=`Head ${compassText(brg)}`;streetText=(seg.name?`towards ${seg.name}`:`to next segment`)+` · ${state.currentIdx+1}/${state.routeOrder.length}`;maneuver='straight';}
+  else{actionText=maneuverLabel(maneuver,seg.name);streetText=`Walk ${seg.name||'this street'} · ${state.currentIdx+1}/${state.routeOrder.length}`;}
+  let nextText='—';
+  if(state.currentIdx+1<state.routeOrder.length){const ns=state.segments[state.routeOrder[state.currentIdx+1]];const np=ns.latlngs;let nm='straight';if(seg.latlngs.length>=2&&np.length>=2){const cb=bearing(seg.latlngs[seg.latlngs.length-2],seg.latlngs[seg.latlngs.length-1]);const nb=bearing(np[0],np[1]);nm=getManeuver(cb,nb);}nextText=maneuverLabel(nm,ns.name||'next street');}
+  else nextText='Finish route';
+  document.getElementById('navAction').textContent=actionText;
+  document.getElementById('navStreet').textContent=streetText;
+  document.getElementById('navNextText').textContent=nextText;
+  if(state.userPos){const d=distToTarget;document.getElementById('navDist').textContent=d<1000?Math.round(d):(d/1000).toFixed(1);document.getElementById('navDistUnit').textContent=d<1000?'metres':'kilometres';}
+  updateArrow(maneuver,onSeg?null:brg);
+  // Skipped colour on icon if missed
+  document.getElementById('navIconCol').className='nav-icon-col'+(seg.skipped?' skipped-mode':'');
+}
+
+function updateArrow(maneuver,headingDeg){
+  document.getElementById('navArrowPath').setAttribute('d',ARROW_PATHS[maneuver]||ARROW_PATHS.straight);
+  document.getElementById('navArrowSvg').style.transform=headingDeg!=null?`rotate(${headingDeg}deg)`:'rotate(0deg)';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: ui.js — stats, missed panel, popups
+═══════════════════════════════════════════════════════════ */
+function updateStats(){
+  const total=state.segments.length;
+  const done=state.segments.filter(s=>s.completed).length;
+  const skipped=state.skippedSegments.size;
+  const pct=total>0?Math.round(done/total*100):0;
+  const housesLeft=totalHousesRemaining();
+  const etaMin=estimateTimeRemaining();
+
+  document.getElementById('statPct').textContent=pct+'%';
+  document.getElementById('statRemain').textContent=total-done-skipped;
+  document.getElementById('statSkipped').textContent=skipped;
+  document.getElementById('statHouses').textContent=housesLeft>0?housesLeft:'—';
+  document.getElementById('statETA').textContent=etaMin>0?formatTime(etaMin):'—';
+  document.getElementById('statWalked').textContent=formatDist(state.walkedDist);
+  document.getElementById('statDone').textContent=done;
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+'%';
+
+  // Skipped badge in header
+  const badge=document.getElementById('skippedBadge');
+  if(skipped>0){badge.classList.remove('hidden');badge.classList.add('visible');document.getElementById('skippedBadgeText').textContent=skipped+' missed';}
+  else{badge.classList.add('hidden');badge.classList.remove('visible');}
+}
+
+function updateMissedPanel(){
+  const list=document.getElementById('missedList');
+  const count=document.getElementById('missedCount');
+  const n=state.skippedSegments.size;
+  count.textContent=n;
+  if(n===0){list.innerHTML='<div class="missed-empty">No missed streets yet</div>';return;}
+  list.innerHTML='';
+  state.skippedSegments.forEach(sIdx=>{
+    const seg=state.segments[sIdx];
+    if(!seg)return;
+    const item=document.createElement('div');
+    item.className='missed-item';
+    item.innerHTML=`<div class="missed-item-dot"></div>
+      <div class="missed-item-name">${seg.name||'Unnamed street'}</div>
+      <div class="missed-item-dist">${formatDist(seg.length)}</div>
+      <div class="missed-item-zoom">↗</div>`;
+    item.onclick=()=>{map.flyTo([seg.latlngs[0].lat,seg.latlngs[0].lng],18,{duration:1});collapseSheet();};
+    list.appendChild(item);
+  });
+}
+
+function showMissedPanel(){
+  expandSheet();
+  setTimeout(()=>{document.getElementById('missedSection').scrollIntoView({behavior:'smooth',block:'start'});},350);
+}
+
+function segmentPopup(seg){
+  const houses=seg.houseEstimate||0;
+  const remaining=seg.completed?0:houses;
+  return `<div class="seg-info-popup">
+    <div class="seg-name">${seg.name||'Unnamed street'}</div>
+    <div class="seg-row"><span>Length</span><span class="seg-val">${formatDist(seg.length)}</span></div>
+    <div class="seg-row"><span>Est. houses</span><span class="seg-val">${houses}</span></div>
+    <div class="seg-row"><span>Remaining</span><span class="seg-val">${remaining}</span></div>
+    <div class="seg-row"><span>Status</span><span class="seg-val" style="color:${seg.completed?'#2dd4a0':seg.skipped?'#e05252':'#c9a84c'}">${seg.completed?'Completed':seg.skipped?'Missed':'Pending'}</span></div>
+  </div>`;
+}
+
+function finishRoute(){
+  state.phase='done';
+  if(state.watchId)navigator.geolocation.clearWatch(state.watchId);
+  setStatus('Complete','active');
+  setPhase('✦','All streets covered');
+  document.getElementById('navAction').textContent='Route Complete';
+  document.getElementById('navStreet').textContent='Every street covered — exceptional work.';
+  document.getElementById('navDist').textContent='0';
+  document.getElementById('navDistUnit').textContent='remaining';
+  document.getElementById('navNextText').textContent='Mission accomplished';
+  updateArrow('arrive',null);
+  expandSheet();
+  const skipped=state.skippedSegments.size;
+  setHint(skipped>0?`🏆 <strong>Complete.</strong> ${skipped} street${skipped>1?'s':''} were missed — tap the red badge to review.`:'🏆 <strong>Congratulations.</strong> Every street in the selected area has been covered.');
+  updateStats(); updateMissedPanel();
+  if(navigator.vibrate)navigator.vibrate([100,50,100,50,200]);
+  toast('Route complete — all streets covered');
+  saveProgressToIDB();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: start pin + walk-to-start line
+═══════════════════════════════════════════════════════════ */
+function activateStartPin(){state.placingPin=true;map.getContainer().style.cursor='crosshair';setStatus('Tap map','loading');toast('Tap the map to set your start position');collapseSheet();}
+
+function placeStartPin(latlng){
+  state.placingPin=false; map.getContainer().style.cursor='';
+  state.startPin={lat:latlng.lat,lng:latlng.lng};
+  if(state.startPinMarker)map.removeLayer(state.startPinMarker);
+  const icon=L.divIcon({
+    html:`<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:16px;height:16px;background:#e07b3a;border:2.5px solid #f4f0e6;border-radius:50%;box-shadow:0 0 12px rgba(224,123,58,0.6)"></div>
+      <div style="width:2px;height:8px;background:linear-gradient(180deg,#e07b3a,transparent);margin-top:1px"></div>
+      <div style="position:absolute;top:-24px;left:-18px;background:rgba(12,13,15,0.95);border:1px solid rgba(224,123,58,0.5);color:#e07b3a;font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;font-family:'DM Mono',monospace;letter-spacing:1.5px;text-transform:uppercase">Start</div>
+    </div>`,
+    iconSize:[16,28],iconAnchor:[8,24],className:'',
+  });
+  state.startPinMarker=L.marker([latlng.lat,latlng.lng],{icon,draggable:true}).addTo(map);
+  state.startPinMarker.on('dragend',ev=>{const p=ev.target.getLatLng();state.startPin={lat:p.lat,lng:p.lng};updateStartPinInfo();drawWalkToStartLine();toast('Start position updated.');});
+  updateStartPinInfo(); drawWalkToStartLine(); startLocateWatch();
+  setStatus('Pin set','active'); expandSheet(); toast('Start position placed');
+}
+
+function drawWalkToStartLine(){
+  if(state.walkToStartLine){map.removeLayer(state.walkToStartLine);state.walkToStartLine=null;}
+  if(!state.startPin)return;
+  const pts=[];
+  if(state.userPos)pts.push([state.userPos.lat,state.userPos.lng]);
+  pts.push([state.startPin.lat,state.startPin.lng]);
+  if(pts.length<2)return;
+  state.walkToStartLine=L.polyline(pts,{color:'#9b8ec4',weight:2.5,opacity:0.8,dashArray:'7 6'}).addTo(map);
+}
+
+function updateWalkToStartLine(){
+  if(!state.startPin||state.walkToStartCompleted)return;
+  if(!state.walkToStartLine||!state.userPos){drawWalkToStartLine();return;}
+  state.walkToStartLine.setLatLngs([[state.userPos.lat,state.userPos.lng],[state.startPin.lat,state.startPin.lng]]);
+  if(haversine(state.userPos,state.startPin)<20){
+    state.walkToStartCompleted=true;
+    if(state.walkToStartLine){map.removeLayer(state.walkToStartLine);state.walkToStartLine=null;}
+  }
+}
+
+function updateStartPinInfo(){
+  document.getElementById('startPinInfo').innerHTML=state.startPin?
+    `Start: <strong>${state.startPin.lat.toFixed(5)}, ${state.startPin.lng.toFixed(5)}</strong> — drag to adjust`:
+    'No start pin — route begins from <strong>area edge</strong>';
+}
+
+function selectDir(btn){
+  document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); state.sweepDir=btn.dataset.dir;
+  toast({auto:'Auto sweep',NS:'North → South',SN:'South → North',EW:'East → West',WE:'West → East'}[state.sweepDir]);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODULE: offline (IndexedDB + Service Worker registration)
+═══════════════════════════════════════════════════════════ */
+let idb=null;
+function openIDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('covigo_v1',1);
+    req.onupgradeneeded=e=>{
+      const db=e.target.result;
+      if(!db.objectStoreNames.contains('progress'))db.createObjectStore('progress',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('routes'))db.createObjectStore('routes',{keyPath:'id'});
+    };
+    req.onsuccess=e=>{idb=e.target.result;res(idb);};
+    req.onerror=()=>rej(req.error);
+  });
+}
+
+function saveProgressToIDB(){
+  if(!idb)return;
+  const data={
+    id:'current_session',
+    ts:Date.now(),
+    segments:state.segments.map(s=>({id:s.id,completed:s.completed,skipped:s.skipped,name:s.name,length:s.length,houseEstimate:s.houseEstimate,latlngs:s.latlngs})),
+    routeOrder:state.routeOrder,
+    currentIdx:state.currentIdx,
+    totalDist:state.totalDist,
+    completedDist:state.completedDist,
+    walkedDist:state.walkedDist,
+    breadcrumbPts:state.breadcrumbPts,
+    skippedSegments:[...state.skippedSegments],
+  };
+  const tx=idb.transaction('progress','readwrite');
+  tx.objectStore('progress').put(data);
+}
+
+async function loadProgressFromIDB(){
+  if(!idb)return null;
+  return new Promise(res=>{
+    const tx=idb.transaction('progress','readonly');
+    const req=tx.objectStore('progress').get('current_session');
+    req.onsuccess=()=>res(req.result||null);
+    req.onerror=()=>res(null);
+  });
+}
+
+// Register service worker for offline tile caching
+if('serviceWorker' in navigator){
+  // Inline SW as blob URL since we're single-file
+  const swCode=`
+const CACHE='covigo-tiles-v1';
+self.addEventListener('install',e=>self.skipWaiting());
+self.addEventListener('activate',e=>clients.claim());
+self.addEventListener('fetch',e=>{
+  const url=e.request.url;
+  if(url.includes('tile.openstreetmap.org')){
+    e.respondWith(caches.open(CACHE).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{c.put(e.request,res.clone());return res;}))));
+  }
+});`;
+  try{
+    const blob=new Blob([swCode],{type:'application/javascript'});
+    const swUrl=URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).catch(()=>{});
+  }catch(e){}
+}
+
+// Init IDB on load
+openIDB().catch(()=>{});
+
+/* ═══════════════════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════════════════ */
+function resetAll(){
+  if(!confirm('Reset all progress and start over?'))return;
+  if(state.watchId)navigator.geolocation.clearWatch(state.watchId);
+  if(state.locateWatchId)navigator.geolocation.clearWatch(state.locateWatchId);
+  if(state.userMarker)map.removeLayer(state.userMarker);
+  state.segments.forEach(s=>{if(s.polyline)map.removeLayer(s.polyline);});
+  if(state.routeConnector)map.removeLayer(state.routeConnector);
+  if(state.startPinMarker)map.removeLayer(state.startPinMarker);
+  if(state.breadcrumbLine)map.removeLayer(state.breadcrumbLine);
+  if(state.walkToStartLine)map.removeLayer(state.walkToStartLine);
+  drawnItems.clearLayers();
+  map.getContainer().style.cursor='';
+  document.getElementById('navBanner').classList.remove('visible');
+  document.getElementById('locateBtn').classList.remove('on');
+  document.getElementById('skippedBadge').className='skipped-badge hidden';
+
+  Object.assign(state,{
+    phase:'draw',drawnLayer:null,boundaryCoords:null,
+    segments:[],routeOrder:[],currentIdx:0,
+    watchId:null,locateWatchId:null,autoFollow:false,
+    userMarker:null,userPos:null,prevPos:null,userHeading:null,lastGpsTick:0,
+    totalDist:0,completedDist:0,walkedDist:0,
+    startPin:null,startPinMarker:null,sweepDir:'auto',placingPin:false,
+    routeConnector:null,
+    walkToStartLine:null,walkToStartCompleted:false,
+    breadcrumbLine:null,breadcrumbPts:[],
+    segmentProgress:{},graph:{},
+    skippedSegments:new Set(),
+    lastNearIntersection:null,intersectionApproachTime:0,
+  });
+
+  setStatus('Ready','');
+  setPhase('01','Select your area');
+  setHint('Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner), then configure and generate your route.');
+  disableBtn('btnGenerate');disableBtn('btnStart');disableBtn('btnPause');disableBtn('btnSetStart');
+  enableBtn('btnDraw');
+  hide('dashboard');hide('progressWrap');hide('legendRow');hide('dirSection');hide('startPinRow');hide('missedSection');
+  const pb=document.getElementById('btnPause');
+  pb.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause';
+  pb.onclick=pauseNavigation;
+  document.querySelectorAll('.dir-pill').forEach(b=>b.classList.remove('on'));
+  document.querySelector('.dir-pill[data-dir="auto"]').classList.add('on');
+  updateStartPinInfo();updateStats();expandSheet();
+  toast('Reset complete.');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════════════ */
+function activateDraw(){new L.Draw.Polygon(map,drawControl.options.draw.polygon).enable();toast('Draw a polygon to select your area.');collapseSheet();}
+function setStatus(t,c){document.getElementById('statusLabel').textContent=t;document.getElementById('statusPip').className='status-pip '+(c||'');}
+function setPhase(step,title){document.getElementById('sheetStep').textContent='Step '+step;document.getElementById('sheetTitle').textContent=title;}
+function setHint(h){document.getElementById('hintBox').innerHTML=h;}
+function enableBtn(id){document.getElementById(id).disabled=false;}
+function disableBtn(id){document.getElementById(id).disabled=true;}
+function show(id){const el=document.getElementById(id);el.classList.remove('hidden');el.classList.add('sheet-section');}
+function hide(id){document.getElementById(id).classList.add('hidden');}
+let _tt;
+function toast(m,type=''){
+  const e=document.getElementById('toast');
+  e.textContent=m; e.className='show'+(type?' '+type:'');
+  clearTimeout(_tt); _tt=setTimeout(()=>{e.className='';},3500);
+}
+function toastWarn(m){toast(m,'warn');}
+function toastSuccess(m){toast(m,'success');}
+function showLoading(t,s){document.getElementById('loadingText').textContent=t;document.getElementById('loadingSub').textContent=s;document.getElementById('loadingOverlay').classList.add('show');}
+function setLoadingText(t,s){document.getElementById('loadingText').textContent=t;document.getElementById('loadingSub').textContent=s;}
+function hideLoading(){document.getElementById('loadingOverlay').classList.remove('show');}
+function toggleSheet(){state.sheetOpen=!state.sheetOpen;document.getElementById('sheet').classList.toggle('collapsed',!state.sheetOpen);document.getElementById('sheetChevron').classList.toggle('up',state.sheetOpen);}
+function expandSheet(){state.sheetOpen=true;document.getElementById('sheet').classList.remove('collapsed');document.getElementById('sheetChevron').classList.add('up');}
+function collapseSheet(){state.sheetOpen=false;document.getElementById('sheet').classList.add('collapsed');document.getElementById('sheetChevron').classList.remove('up');}
+
+/* Expose state for AI assistant bridge */
+function getCovigoSnapshot() {
+  const total = state.segments.length;
+  const done = state.segments.filter(s => s.completed).length;
+  const skipped = state.skippedSegments.size;
+  const currentSeg = state.currentIdx < state.routeOrder.length ? state.segments[state.routeOrder[state.currentIdx]] : null;
+  const nextSeg = state.currentIdx + 1 < state.routeOrder.length ? state.segments[state.routeOrder[state.currentIdx + 1]] : null;
+  const missed = [...state.skippedSegments].map(i => state.segments[i]?.name || 'Unnamed street');
+  const remDist = Math.max(0, state.totalDist - state.completedDist);
+  const etaMin = remDist > 0 ? Math.round((remDist / 1.3) / 60) : 0;
+  return {
+    phase: state.phase,
+    total, done, skipped,
+    pct: total > 0 ? Math.round(done / total * 100) : 0,
+    walkedDist: state.walkedDist,
+    totalDist: state.totalDist,
+    remDist,
+    etaMin,
+    housesLeft: [...state.routeOrder].slice(state.currentIdx).filter(i => !state.segments[i]?.completed).reduce((s,i) => s + (state.segments[i]?.houseEstimate||0), 0),
+    currentStreet: currentSeg ? (currentSeg.name || 'Unnamed') : null,
+    currentStreetLen: currentSeg ? currentSeg.length : null,
+    nextStreet: nextSeg ? (nextSeg.name || 'Unnamed') : null,
+    missedStreets: missed,
+    sweepDir: state.sweepDir,
+  };
+}
+window.addEventListener('message', e => {
+  if (e.data === 'covigo:getSnapshot') {
+    e.source?.postMessage({ type: 'covigo:snapshot', data: getCovigoSnapshot() }, '*');
+  }
+});
+
+
+/* AI ASSISTANT - Gemini via /api/ai */
+const _ai={open:false,thinking:false,history:[],voiceMode:false,recog:null};
+function toggleAI(){_ai.open?closeAI():openAI();}
+function openAI(){_ai.open=true;document.getElementById('aiDrawer').classList.add('open');_aiRefreshCtx();setTimeout(()=>document.getElementById('aiInput').focus(),500);}
+function closeAI(){_ai.open=false;document.getElementById('aiDrawer').classList.remove('open');_aiStopVoice();}
+function _aiRefreshCtx(){
+  const s=getCovigoSnapshot();
+  const fmt=m=>m<1000?Math.round(m)+'m':(m/1000).toFixed(1)+'km';
+  const fmtT=m=>m<1?'<1m':m<60?Math.round(m)+'m':Math.floor(m/60)+'h'+Math.round(m%60)+'m';
+  document.getElementById('aiCtx').innerHTML=
+    [['Phase',s.phase],['Coverage',s.pct+'%'],['Done',s.done+'/'+s.total],
+     ['Missed',s.skipped],['ETA',s.etaMin>0?fmtT(s.etaMin):'--'],['Walked',fmt(s.walkedDist)]]
+    .map(([l,v])=>`<div class="ai-pill">${l} <b>${v}</b></div>`).join('');
+}
+function _aiPrompt(){
+  const s=getCovigoSnapshot();
+  const fmt=m=>m<1000?Math.round(m)+'m':(m/1000).toFixed(1)+'km';
+  const fmtT=m=>m<1?'less than 1 min':m<60?Math.round(m)+' min':Math.floor(m/60)+'h '+Math.round(m%60)+'m';
+  const lines=[
+    'You are the Covigo Navigator AI, a concise walking navigation assistant for a street coverage app.',
+    '',
+    'SESSION:',
+    '- Phase: '+s.phase,
+    '- Streets: '+s.done+'/'+s.total+' done ('+s.pct+'%)',
+    '- Pending: '+(s.total-s.done-s.skipped)+' | Missed: '+s.skipped+(s.missedStreets&&s.missedStreets.length?' ('+s.missedStreets.join(', ')+')':''),
+    '- Walked: '+fmt(s.walkedDist)+' of '+fmt(s.totalDist)+' | Remaining: '+fmt(s.remDist||0),
+    '- ETA: '+(s.etaMin>0?fmtT(s.etaMin):'not started')+' | Houses left: '+(s.housesLeft||'unknown'),
+    '- Current street: '+(s.currentStreet||'none')+' | Next: '+(s.nextStreet||'end of route'),
+    '',
+    'Be concise (2-4 sentences). Highlight numbers naturally. Be encouraging. No markdown headers.',
+  ];
+  return lines.join('\n');
+}
+function _aiAppend(role,text){
+  const c=document.getElementById('aiMsgs');
+  const w=document.createElement('div');w.className='ai-msg '+(role==='user'?'u':'a');
+  const b=document.createElement('div');b.className='ai-bubble';
+  b.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  w.appendChild(b);c.appendChild(w);c.scrollTop=c.scrollHeight;
+}
+function _aiShowTyping(){const c=document.getElementById('aiMsgs');const e=document.createElement('div');e.id='aiTyping';e.className='ai-typing';e.innerHTML='<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>';c.appendChild(e);c.scrollTop=c.scrollHeight;}
+function _aiHideTyping(){document.getElementById('aiTyping')?.remove();}
+async function aiSend(text){
+  text=(text||'').trim();if(!text||_ai.thinking)return;
+  document.getElementById('aiInput').value='';
+  document.getElementById('aiInput').style.height='auto';
+  _aiAppend('user',text);
+  _ai.history=[..._ai.history.slice(-11),{role:'user',parts:[{text:text}]}];
+  _ai.thinking=true;
+  document.getElementById('aiSendBtn').disabled=true;
+  document.getElementById('aiSub').textContent='Thinking...';
+  document.getElementById('aiTrigger').className='thinking';
+  _aiShowTyping();_aiRefreshCtx();
+  try{
+    const res=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({systemPrompt:_aiPrompt(),history:_ai.history})});
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||'HTTP '+res.status);}
+    const data=await res.json();
+    const reply=data.reply||'Sorry, no response received.';
+    _aiHideTyping();_aiAppend('assistant',reply);
+    _ai.history=[..._ai.history,{role:'model',parts:[{text:reply}]}];
+    if(_ai.voiceMode)_aiSpeak(reply);
+  }catch(err){
+    _aiHideTyping();_aiAppend('assistant','Error: '+err.message);
+  }finally{
+    _ai.thinking=false;
+    document.getElementById('aiSendBtn').disabled=false;
+    document.getElementById('aiSub').textContent='Powered by Gemini';
+    document.getElementById('aiTrigger').className='';
+  }
+}
+function _aiSpeak(text){
+  if(!window.speechSynthesis)return;
+  const clean=text.replace(/\*\*/g,'').replace(/<[^>]+>/g,'');
+  const short=clean.split(/[.!?]/g).slice(0,2).join('. ').trim();
+  if(!short)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(short);u.lang='en-GB';u.rate=0.95;
+  window.speechSynthesis.speak(u);
+}
+function aiToggleVoice(){_ai.voiceMode?_aiStopVoice():_aiStartVoice();}
+function _aiStartVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('Voice not supported in this browser');return;}
+  const r=new SR();r.lang='en-GB';r.interimResults=true;
+  r.onstart=()=>{_ai.voiceMode=true;document.getElementById('aiMic').classList.add('on');document.getElementById('aiTrigger').className='listening';document.getElementById('aiTranscript').textContent='Listening...';};
+  r.onresult=e=>{let t='',f='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)f+=e.results[i][0].transcript;else t+=e.results[i][0].transcript;}document.getElementById('aiTranscript').textContent=f||t;if(f)document.getElementById('aiInput').value=f;};
+  r.onend=()=>{_aiStopVoice();const t=document.getElementById('aiInput').value.trim();if(t)aiSend(t);};
+  r.onerror=()=>_aiStopVoice();
+  r.start();_ai.recog=r;
+}
+function _aiStopVoice(){
+  _ai.voiceMode=false;_ai.recog?.stop();_ai.recog=null;
+  const m=document.getElementById('aiMic');if(m)m.classList.remove('on');
+  document.getElementById('aiTrigger').className='';
+  document.getElementById('aiTranscript').textContent='';
+}
+</script>
+
+<div id="aiTrigger" onclick="toggleAI()" title="Ask Covigo AI">
+  <span class="ai-tip">Ask Covigo AI</span>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/></svg>
+</div>
+<div id="aiDrawer">
+  <div id="aiScrim" onclick="closeAI()"></div>
+  <div id="aiPanel">
+    <div class="ai-handle-bar"></div>
+    <div class="ai-hdr">
+      <div class="ai-hdr-l">
+        <div class="ai-avatar">C</div>
+        <div><div class="ai-hdr-name">Covigo Assistant</div><div class="ai-hdr-sub" id="aiSub">Powered by Gemini</div></div>
+      </div>
+      <button class="ai-close" onclick="closeAI()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 1l11 11M12 1L1 12"/></svg></button>
+    </div>
+    <div class="ai-ctx-bar" id="aiCtx"></div>
+    <div id="aiMsgs">
+      <div class="ai-msg a"><div class="ai-bubble">Hello! I am your <strong>Covigo Navigator</strong>, powered by Gemini. I know your full route and can answer questions about your progress, missed streets, and time estimates.</div></div>
+    </div>
+    <div class="ai-transcript" id="aiTranscript"></div>
+    <div class="ai-suggests">
+      <button class="ai-chip" onclick="aiSend(this.textContent)">How much is left?</button>
+      <button class="ai-chip" onclick="aiSend(this.textContent)">What street am I on?</button>
+      <button class="ai-chip" onclick="aiSend(this.textContent)">Any missed streets?</button>
+      <button class="ai-chip" onclick="aiSend(this.textContent)">How long will this take?</button>
+      <button class="ai-chip" onclick="aiSend(this.textContent)">Am I making good progress?</button>
+      <button class="ai-chip" onclick="aiSend(this.textContent)">What is next after this street?</button>
+    </div>
+    <div class="ai-input-row">
+      <button class="ai-mic" id="aiMic" onclick="aiToggleVoice()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8"/></svg></button>
+      <textarea id="aiInput" placeholder="Ask anything about your route..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend(document.getElementById('aiInput').value);}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,110)+'px'"></textarea>
+      <button class="ai-send" id="aiSendBtn" onclick="aiSend(document.getElementById('aiInput').value)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg></button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
