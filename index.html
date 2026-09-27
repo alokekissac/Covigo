@@ -74,10 +74,11 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--ink);color:
 /* ── MAP ── */
 #map{flex:1;position:relative;z-index:1;}
 #map .leaflet-tile-pane{filter:saturate(0.2) brightness(0.55) contrast(1.1);}
-.leaflet-draw-toolbar a{background:rgba(20,21,25,0.92)!important;border-color:rgba(201,168,76,0.25)!important;color:var(--silver)!important;backdrop-filter:blur(10px);}
-.leaflet-draw-toolbar a:hover{background:rgba(201,168,76,0.12)!important;color:var(--gold2)!important;border-color:var(--gold-line)!important;}
-.leaflet-bar a{background:rgba(20,21,25,0.92)!important;color:var(--silver)!important;border-color:rgba(201,168,76,0.2)!important;backdrop-filter:blur(10px);}
-.leaflet-bar a:hover{background:rgba(201,168,76,0.1)!important;color:var(--gold2)!important;}
+/* background-color only: the shorthand would wipe Leaflet.Draw's icon sprite */
+.leaflet-bar.leaflet-draw-toolbar a{background-color:#e8e1cc!important;border-color:rgba(201,168,76,0.45)!important;}
+.leaflet-bar.leaflet-draw-toolbar a:hover{background-color:#f3d98a!important;border-color:var(--gold-line)!important;}
+.leaflet-bar a{background-color:rgba(20,21,25,0.92)!important;color:var(--silver)!important;border-color:rgba(201,168,76,0.2)!important;backdrop-filter:blur(10px);}
+.leaflet-bar a:hover{background-color:rgba(201,168,76,0.1)!important;color:var(--gold2)!important;}
 .leaflet-popup-content-wrapper{background:var(--ink2);color:var(--ivory);border:1px solid var(--veil);border-radius:10px;}
 .leaflet-popup-tip{background:var(--ink2);}
 .leaflet-control-attribution{background:rgba(12,13,15,0.7)!important;color:var(--fog)!important;font-size:10px!important;}
@@ -287,6 +288,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--ink);color:
 .ai-send:disabled{opacity:0.3;transform:none;cursor:default;background:#1d1f26;box-shadow:none;color:#5a5e6e;}
 .ai-transcript{padding:4px 20px;font-family:'DM Mono',monospace;font-size:11px;color:#2dd4a0;min-height:20px;}
 
+/* keep map controls clear of the navigation banner */
+body:has(#navBanner.visible) .leaflet-top{top:118px;transition:top .3s ease}
 </style>
 </head>
 <body>
@@ -431,7 +434,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--ink);color:
     </div>
 
     <div class="hint-box" id="hintBox">
-      Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner), then configure and generate your route.
+      Tap <strong>Draw Area</strong> on the map using the shape tools (top-left of the map), then configure and generate your route.
     </div>
 
     <div class="btn-section">
@@ -559,7 +562,7 @@ map.on(L.Draw.Event.DELETED,()=>{
   disableBtn('btnGenerate'); disableBtn('btnSetStart');
   setStatus('Ready','');
   hide('dirSection'); hide('startPinRow');
-  setHint('Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner).');
+  setHint('Tap <strong>Draw Area</strong> on the map using the shape tools (top-left of the map).');
 });
 map.on('click',e=>{if(state.placingPin)placeStartPin(e.latlng);});
 
@@ -963,7 +966,7 @@ async function generateRoute(){
     toast(`${state.segments.length} streets · ${Math.round(totalHousesRemaining())} est. houses`);
   }catch(err){
     hideLoading();setStatus('Error','');
-    const msg=err.message?.includes('mirrors')||err.name==='TypeError'?'Cannot reach OpenStreetMap. Open the file directly in your browser.':err.name==='TimeoutError'?'Request timed out — try a smaller area.':'Error: '+err.message;
+    const msg=err.message?.includes('mirrors')||err.name==='TypeError'?'Cannot reach OpenStreetMap. Check your connection and try again.':err.name==='TimeoutError'?'Request timed out — try a smaller area.':'Error: '+err.message;
     setHint('⚠ <strong>'+msg+'</strong>');
     toast(msg);
     enableBtn('btnGenerate');
@@ -973,6 +976,12 @@ async function generateRoute(){
 /* ═══════════════════════════════════════════════════════════
    MODULE: navigation
 ═══════════════════════════════════════════════════════════ */
+// Friendly GPS errors. Timeouts are normal while standing still, so they are not shown.
+function gpsError(e){
+  if(e.code===3)return;
+  const msg={1:'Location permission denied: allow location access to navigate.',2:'Location unavailable: move to an open area.'}[e.code]||e.message||'Location error';
+  toast('GPS: '+msg);
+}
 function startNavigation(){
   if(!state.segments.length){toast('Generate a route first.');return;}
   state.phase='navigating';
@@ -992,7 +1001,7 @@ function startNavigation(){
   document.getElementById('locateBtn').classList.remove('on');
 
   if(navigator.geolocation){
-    state.watchId=navigator.geolocation.watchPosition(onPosition,e=>toast('GPS: '+e.message),GPS_NAV);
+    state.watchId=navigator.geolocation.watchPosition(onPosition,gpsError,GPS_NAV);
   }else{toast('GPS not available on this device.');}
   updateNavBanner();
 }
@@ -1364,7 +1373,7 @@ function resetAll(){
 
   setStatus('Ready','');
   setPhase('01','Select your area');
-  setHint('Tap <strong>Draw Area</strong> on the map using the polygon tool (top-right corner), then configure and generate your route.');
+  setHint('Tap <strong>Draw Area</strong> on the map using the shape tools (top-left of the map), then configure and generate your route.');
   disableBtn('btnGenerate');disableBtn('btnStart');disableBtn('btnPause');disableBtn('btnSetStart');
   enableBtn('btnDraw');
   hide('dashboard');hide('progressWrap');hide('legendRow');hide('dirSection');hide('startPinRow');hide('missedSection');
