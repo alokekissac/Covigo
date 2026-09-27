@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Covigo — Coverage Navigator</title>
+<meta name="description" content="Covigo helps you walk every street in an area: draw a zone, get an optimised walking route from OpenStreetMap, and follow turn-by-turn guidance with GPS progress tracking and an AI assistant.">
+<meta name="theme-color" content="#0c0d0f">
+<meta property="og:title" content="Covigo — Coverage Navigator">
+<meta property="og:description" content="Draw a zone, generate a street-coverage walking route, and navigate it turn by turn.">
+<meta property="og:type" content="website">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
@@ -73,6 +80,8 @@ html,body{height:100%;height:100dvh;overflow:hidden;background:var(--ink);color:
 .leaflet-bar a:hover{background:rgba(201,168,76,0.1)!important;color:var(--gold2)!important;}
 .leaflet-popup-content-wrapper{background:var(--ink2);color:var(--ivory);border:1px solid var(--veil);border-radius:10px;}
 .leaflet-popup-tip{background:var(--ink2);}
+.leaflet-control-attribution{background:rgba(12,13,15,0.7)!important;color:var(--fog)!important;font-size:10px!important;}
+.leaflet-control-attribution a{color:var(--silver)!important;}
 
 /* ── NAV BANNER ── */
 #navBanner{position:absolute;top:0;left:0;right:0;z-index:500;display:none;flex-direction:column;pointer-events:none;}
@@ -516,8 +525,10 @@ const state={
 /* ═══════════════════════════════════════════════════════════
    MODULE: map.js  (map init + draw controls)
 ═══════════════════════════════════════════════════════════ */
-const map=L.map('map',{zoomControl:true,attributionControl:false});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
+const map=L.map('map',{zoomControl:true,attributionControl:true});
+map.attributionControl.setPrefix(false);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
   // performance: use low-quality tiles when panning quickly
 }).addTo(map);
 
@@ -1308,24 +1319,10 @@ async function loadProgressFromIDB(){
   });
 }
 
-// Register service worker for offline tile caching
-if('serviceWorker' in navigator){
-  // Inline SW as blob URL since we're single-file
-  const swCode=`
-const CACHE='covigo-tiles-v1';
-self.addEventListener('install',e=>self.skipWaiting());
-self.addEventListener('activate',e=>clients.claim());
-self.addEventListener('fetch',e=>{
-  const url=e.request.url;
-  if(url.includes('tile.openstreetmap.org')){
-    e.respondWith(caches.open(CACHE).then(c=>c.match(e.request).then(r=>r||fetch(e.request).then(res=>{c.put(e.request,res.clone());return res;}))));
-  }
-});`;
-  try{
-    const blob=new Blob([swCode],{type:'application/javascript'});
-    const swUrl=URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swUrl).catch(()=>{});
-  }catch(e){}
+// Register service worker for offline tile caching (see sw.js).
+// Note: service workers must be served from the same origin; blob: URLs are rejected by browsers.
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
 
 // Init IDB on load
@@ -1476,7 +1473,8 @@ function _aiAppend(role,text){
   const c=document.getElementById('aiMsgs');
   const w=document.createElement('div');w.className='ai-msg '+(role==='user'?'u':'a');
   const b=document.createElement('div');b.className='ai-bubble';
-  b.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  const esc=String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  b.innerHTML=esc.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
   w.appendChild(b);c.appendChild(w);c.scrollTop=c.scrollHeight;
 }
 function _aiShowTyping(){const c=document.getElementById('aiMsgs');const e=document.createElement('div');e.id='aiTyping';e.className='ai-typing';e.innerHTML='<div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div>';c.appendChild(e);c.scrollTop=c.scrollHeight;}

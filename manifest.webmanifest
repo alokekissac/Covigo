@@ -1,0 +1,10 @@
+{
+  "name": "Covigo — Coverage Navigator",
+  "short_name": "Covigo",
+  "description": "Walk every street in an area with an optimised route and turn-by-turn guidance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0d0f",
+  "theme_color": "#0c0d0f",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
