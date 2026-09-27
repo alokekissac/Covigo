@@ -13,8 +13,10 @@ Draw a zone on the map. Covigo pulls every walkable street from OpenStreetMap, o
 ![Leaflet](https://img.shields.io/badge/Leaflet-199900?style=flat-square&logo=leaflet&logoColor=white)
 ![OpenStreetMap](https://img.shields.io/badge/OpenStreetMap-7EBC6F?style=flat-square&logo=openstreetmap&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
-![Netlify](https://img.shields.io/badge/Netlify-00C7B7?style=flat-square&logo=netlify&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-offline%20tiles-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falokekissac%2FCovigo&project-name=covigo&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20key%20for%20the%20AI%20assistant&envLink=https%3A%2F%2Faistudio.google.com%2Fapikey)
 
 </div>
 
@@ -71,7 +73,7 @@ This is a fast greedy heuristic that runs instantly in the browser, even for hun
 
 **Completion detection.** While you're within about 10 m of the current street and heading roughly along it (±40°), GPS points count toward that street. A street is done once the points cover about 70% of its length, or when you reach its far end.
 
-**AI assistant.** Every message sends a compact snapshot of your session (phase, coverage, distances, ETA, current and next street, missed streets) as the system prompt. The browser calls `/api/ai`, a Netlify function that adds your Gemini key server-side, so the key never reaches the browser.
+**AI assistant.** Every message sends a compact snapshot of your session (phase, coverage, distances, ETA, current and next street, missed streets) as the system prompt. The browser calls `/api/ai`, a Vercel serverless function that adds your Gemini key server-side, so the key never reaches the browser.
 
 ---
 
@@ -83,8 +85,8 @@ This is a fast greedy heuristic that runs instantly in the browser, even for hun
 ├── sw.js                       # Service worker: caches viewed OSM tiles for offline use
 ├── manifest.webmanifest        # Installable PWA metadata
 ├── icon.svg
-├── netlify.toml                # Publish dir, functions dir, /api/ai redirect, headers
-└── netlify/functions/ai.js     # Serverless Gemini proxy (key stays server-side)
+├── api/ai.js                   # Vercel serverless function: Gemini proxy (key stays server-side)
+└── vercel.json                 # Security headers + service-worker caching
 ```
 
 No build step and no framework: one HTML file, with Leaflet and Leaflet.Draw loaded from a CDN.
@@ -93,26 +95,28 @@ No build step and no framework: one HTML file, with Leaflet and Leaflet.Draw loa
 
 ## 🚀 Deploy your own (free)
 
-1. **Get a Gemini API key** at [aistudio.google.com](https://aistudio.google.com) → *Get API key*.
-2. **Deploy to Netlify:** fork this repo, then in Netlify choose *Add new site → Import an existing project*, pick the repo, and deploy. No build command is needed.
-3. **Add environment variables** under *Site configuration → Environment variables*:
+Click **Deploy with Vercel** at the top: it asks for your Gemini key and deploys everything in about a minute. Or do it manually:
+
+1. **Get a Gemini API key** at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+2. **Import the repo** at [vercel.com/new](https://vercel.com/new). There's no build step and nothing to configure: the static app is served from the root, and `api/ai.js` becomes the `/api/ai` function.
+3. **Add environment variables** under *Project → Settings → Environment Variables*:
 
    | Variable | Required | Purpose |
    |---|:---:|---|
    | `GEMINI_API_KEY` | ✅ | Your Gemini key |
    | `GEMINI_MODEL` | – | Comma-separated models to try in order. Default: `gemini-flash-lite-latest, gemini-3.1-flash-lite, gemini-3.6-flash` |
 
-4. **Redeploy.** The map and navigation work without a key; only the AI assistant needs one.
+4. **Deploy** (or redeploy after adding the key). The map and navigation work without a key; only the AI assistant needs one.
 
-**Run locally:** `npx netlify-cli dev` serves the site and the function together at `http://localhost:8888`. GPS and the service worker need `localhost` or HTTPS.
+**Run locally:** `npx vercel dev` serves the site and the function together at `http://localhost:3000`. GPS and the service worker need `localhost` or HTTPS.
 
 ---
 
 ## 🔒 Security & fair use
 
-- The Gemini key is stored only in Netlify's environment and sent as a request header, never in the browser or in URLs.
+- The Gemini key is stored only in Vercel's environment and sent as a request header, never in the browser or in URLs.
 - The AI endpoint accepts **same-origin POST requests only** (no open CORS). It validates the conversation format and caps it at 24 turns, 2,000 characters per message and 400 output tokens.
-- Chat replies are HTML-escaped before rendering.
+- Chat replies are HTML-escaped before rendering, and `vercel.json` adds `nosniff`, referrer and permissions-policy headers (location and microphone allowed for this site only).
 - Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. Tiles are cached only after you view them (no bulk prefetching), in line with the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
 
 ---
