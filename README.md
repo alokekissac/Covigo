@@ -16,6 +16,8 @@ Draw a zone on the map. Covigo pulls every walkable street from OpenStreetMap, o
 ![Vercel](https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-offline%20tiles-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
 
+### [🧭 Live app: covigo.vercel.app](https://covigo.vercel.app/)
+
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Falokekissac%2FCovigo&project-name=covigo&env=GEMINI_API_KEY&envDescription=Google%20Gemini%20API%20key%20for%20the%20AI%20assistant&envLink=https%3A%2F%2Faistudio.google.com%2Fapikey)
 
 </div>
