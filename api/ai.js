@@ -26,6 +26,17 @@ module.exports = async function handler(req, res) {
   // needed. Leaving CORS closed stops other sites from spending your quota.
   if (req.method !== 'POST') return reply(405, { error: 'Method not allowed' });
 
+  // Reject browser requests coming from other websites (their Origin won't match this host).
+  const origin = req.headers.origin;
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) return reply(403, { error: 'Cross-origin requests are not allowed.' });
+    } catch {
+      return reply(403, { error: 'Invalid origin.' });
+    }
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return reply(500, { error: 'GEMINI_API_KEY is not set in the Vercel environment variables.' });
 
