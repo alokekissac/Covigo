@@ -1,8 +1,8 @@
 /**
- * Covigo AI proxy — Netlify serverless function.
+ * Covigo AI proxy — Vercel serverless function (served at /api/ai).
  *
  * Browser  →  POST /api/ai  →  this function  →  Gemini API
- * The Gemini key lives only in the GEMINI_API_KEY environment variable.
+ * The Gemini key lives only in the GEMINI_API_KEY environment variable (Vercel → Project → Settings → Environment Variables).
  *
  * Optional env vars:
  *   GEMINI_MODEL   comma-separated model list to try in order
@@ -15,20 +15,26 @@ const MAX_TEXT = 2000;         // characters per message
 const MAX_SYSTEM = 4000;       // characters in the system prompt
 const TIMEOUT_MS = 15000;
 
-const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
-const reply = (statusCode, obj) => ({ statusCode, headers, body: JSON.stringify(obj) });
 
-exports.handler = async function (event) {
+module.exports = async function handler(req, res) {
+  const reply = (status, obj) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(status).json(obj);
+  };
+
   // The app calls this endpoint from the same origin, so no CORS headers are
   // needed. Leaving CORS closed stops other sites from spending your quota.
-  if (event.httpMethod !== 'POST') return reply(405, { error: 'Method not allowed' });
+  if (req.method !== 'POST') return reply(405, { error: 'Method not allowed' });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return reply(500, { error: 'GEMINI_API_KEY is not set in the Netlify environment variables.' });
+  if (!apiKey) return reply(500, { error: 'GEMINI_API_KEY is not set in the Vercel environment variables.' });
 
-  let body;
-  try { body = JSON.parse(event.body || '{}'); }
-  catch { return reply(400, { error: 'Invalid JSON' }); }
+  // Vercel parses JSON bodies automatically when Content-Type is application/json.
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body || '{}'); } catch { return reply(400, { error: 'Invalid JSON' }); }
+  }
+  body = body || {};
 
   const systemPrompt = String(body.systemPrompt || 'You are a helpful assistant.').slice(0, MAX_SYSTEM);
   const history = Array.isArray(body.history) ? body.history.slice(-MAX_TURNS) : [];
